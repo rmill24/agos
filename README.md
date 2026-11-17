@@ -1,63 +1,156 @@
 # AGOS
 
-AGOS is a web application for MSME cash-flow management and
-decision support.
+AGOS is a Laravel 13 + Livewire 4 + PostgreSQL cash-flow application. The AGOS app and database run locally; PDF conversion uses Gotenberg hosted on Render.
 
-## Stack
+## Requirements
 
--   Frontend: React, TypeScript, Vite
--   Backend: Node.js, TypeScript, Express
--   Database: PostgreSQL with Prisma
--   PDF generation: Gotenberg hosted on Render
--   External APIs: Loyverse and Groq or Google Gemini
+- PHP 8.3+ with `pdo_pgsql`, `mbstring`, `openssl`, and Laravel-required extensions
+- Composer
+- Node.js and npm
+- PostgreSQL (local server; use a supported PostgreSQL release)
+- Git
+- Optional credentials: Loyverse, Groq/Gemini, and Render-hosted Gotenberg
 
-## Prerequisites
+## PostgreSQL setup
 
--   Node.js and npm
--   PostgreSQL
--   Git
--   Access to the configured Render-hosted Gotenberg service
--   API credentials for integrations you want to test
+AGOS uses PostgreSQL for all application data. The Laravel application connects to PostgreSQL on your development computer; Gotenberg is the only service hosted externally.
 
-## Setup
+### 1. Install and start PostgreSQL
 
-1.  Clone the repository.
+Install PostgreSQL using the installer/package manager for your operating system:
 
-2.  Create local environment files by copying `env.example` to the
-    backend's `.env` file. Adjust paths if the project uses a different
-    environment-file location.
+- **Windows:** Use the official PostgreSQL installer. During setup, remember the password assigned to the `postgres` administrator account and keep the default port `5432` unless it is already in use. You may use pgAdmin to manage the server.
+- **macOS:** Install PostgreSQL using the official installer or Homebrew. If using Homebrew, start the installed PostgreSQL service with `brew services start postgresql` (use the versioned formula name if that is what you installed).
+- **Ubuntu/Debian:** Install the PostgreSQL server and client packages using your distribution's package manager, then start/enable the PostgreSQL service.
 
-3.  Create a PostgreSQL database for AGOS and set `DATABASE_URL`.
+Confirm the server is running and listening on port `5432`. If you selected a different port, use that same port in the commands below and in `.env`.
 
-4.  Install dependencies in `backend/` and `frontend/`:
+### 2. Open the PostgreSQL command line
 
-    ``` bash
-    cd backend && npm install
-    cd ../frontend && npm install
-    ```
+Open a terminal and connect as the PostgreSQL administrator.
 
-5.  From `backend/`, generate the Prisma client and apply migrations:
+A common Windows command (use the password created during installation):
 
-    ``` bash
-    npx prisma generate
-    npx prisma migrate dev
-    ```
+```bash
+psql -h 127.0.0.1 -p 5432 -U postgres
+```
 
-6.  Start the backend and frontend using the development scripts defined
-    in their respective `package.json` files (commonly `npm run dev`).
+On macOS/Linux, the administrator connection may instead be available through your operating-system account:
 
-Open the Vite URL shown in the frontend terminal, usually
-`http://localhost:5173`.
+```bash
+psql postgres
+```
 
-## Notes
+If `psql` is not found, add PostgreSQL's `bin` directory to your PATH or open the SQL Shell (psql) application installed with PostgreSQL. You can also run the SQL below in pgAdmin's Query Tool.
 
--   Configure the Render Gotenberg service URL in `GOTENBERG_BASE_URL`.
-    The local backend calls this service; Gotenberg is not expected to
-    run locally.
--   Keep real credentials in untracked `.env` files. Never commit `.env`
-    files or API keys.
--   Loyverse integration is read-only. AI provides explanations of
-    AGOS-calculated results; it must not calculate official financial
-    values or modify records.
--   If an external API is unavailable, use test fixtures or mocked
-    responses where supported.
+### 3. Create a dedicated AGOS database user and database
+
+Run these SQL statements once while connected as a PostgreSQL administrator:
+
+```sql
+CREATE ROLE agos_user
+WITH LOGIN PASSWORD 'replace_with_a_strong_local_password';
+
+CREATE DATABASE agos
+OWNER agos_user;
+```
+
+Use a strong local password and remember it for the `.env` file. If the role or database already exists, do not run the creation statements again; inspect the existing objects or alter the role/database deliberately.
+
+The `agos_user` role owns the `agos` database and is the application login. Do not configure Laravel to connect as the PostgreSQL superuser.
+
+Exit psql:
+
+```sql
+\q
+```
+
+### 4. Verify the application database login
+
+Connect using the new AGOS role:
+
+```bash
+psql -h 127.0.0.1 -p 5432 -U agos_user -d agos
+```
+
+Enter the password you created. After connecting, run:
+
+```sql
+SELECT current_database(), current_user, version();
+```
+
+The result should show database `agos` and user `agos_user`. Exit with `\q`.
+
+If the connection fails, check that PostgreSQL is running, the host/port are correct, the role and database exist, and the password is correct. Check PostgreSQL's local authentication configuration if password authentication is rejected.
+
+### 5. Configure Laravel's database connection
+
+Copy `.env.example` to `.env` in the Laravel project root. Set the PostgreSQL values to match the database and role you created:
+
+```dotenv
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=agos
+DB_USERNAME=agos_user
+DB_PASSWORD=replace_with_a_strong_local_password
+```
+
+Do not put quotes around a simple password. If the password contains special characters that dotenv parsing may interpret, quote it according to Laravel's environment-file syntax.
+
+Make sure PHP has the `pdo_pgsql` extension enabled. Verify with:
+
+```bash
+php -m
+```
+
+The output should include `PDO` and `pdo_pgsql`. Restart the PHP/Laravel development process after changing PHP extensions or `.env`.
+
+## Install dependencies and initialize AGOS
+
+From the Laravel repository root:
+
+```bash
+composer install
+composer require brick/math
+npm install
+php artisan key:generate
+php artisan config:clear
+php artisan migrate
+npm run build
+```
+
+Before the first migration, verify that the repository contains the required Laravel migrations for users, sessions, cache, jobs, and failed jobs, as well as the starter kit's Teams and membership tables. The implementation agent must add missing migrations rather than assuming they exist.
+
+Check migration status:
+
+```bash
+php artisan migrate:status
+```
+
+If migrations fail, check the database connection and migration error before retrying. Do not drop or recreate the database to hide a migration problem.
+
+## Run AGOS locally
+
+Start the application:
+
+```bash
+composer run dev
+```
+
+Open <http://127.0.0.1:8000>.
+
+In a separate terminal, run one PDF queue worker:
+
+```bash
+php artisan queue:work database --queue=pdf --tries=1 --timeout=60
+```
+
+## AGOS conventions
+
+- One Laravel Team represents one AGOS Business. Team owner = Business Owner; Team member roles = Manager or Bookkeeper. System Administrator is a separate global role. Do not create duplicate Business/Membership tables.
+- Use Livewire single-file components by default; use multi-file/class-based components for complex components. Keep financial calculations in services.
+- Use Laravel migrations for every persistent schema change. Never edit an already-applied migration; create a new one.
+- Keep `.env` untracked. Commit `.env.example` with placeholders only.
+- Gotenberg is hosted on Render. Keep its Basic Auth credentials server-side. At 512 MiB, process one PDF at a time and allow at most two pending PDF jobs.
+- Loyverse is read-only. AI explains verified AGOS calculations and must not modify financial records.

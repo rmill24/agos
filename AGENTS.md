@@ -1,205 +1,52 @@
-# AGENTS.md --- AGOS Coding Instructions
+# AGENTS.md — AGOS coding-agent instructions
 
-These shared instructions apply to any coding agent working in this
-repository.
+Applicable to any repository-aware coding agent.
 
-## 1. Read before coding
+## Authority and workflow
 
-Read these files when present:
+1. Read `AGOS_Functional_Requirements_Specification.md`, then `AGOS_Implementation_Plan.md`, then `README.md`.
+2. Inspect files, migrations, tests, package manifests, and `git status` **before editing**. Find the earliest unverified implementation-plan task.
+3. Implement one small task group, add tests, run checks, review the diff, then report task IDs, files changed, verification results, blockers, and next task.
+4. Check off a task only after its acceptance criteria pass. Do not claim unrun tests passed, silently change financial rules, delete tests for green results, or overwrite user work.
+5. Do not commit, push, deploy AGOS, create cloud services, or modify external business records without user authorization. If interrupted, leave `docs/implementation-status.md` with the last verified task.
 
-1.  `AGOS_Functional_Requirements_Specification.md` --- functional
-    requirements and acceptance criteria.
-2.  `AGOS_Implementation_Plan.md` --- implementation phases, task IDs,
-    and technical decisions.
-3.  `README.md` --- local setup.
+## Stack and structure
 
-The FRS defines **what** the system must do. The implementation plan
-defines **what to build next**. This file defines **how to work**.
+- **Laravel 13 (PHP 8.3+) + Livewire 4 + Blade + Tailwind/Flux UI + PostgreSQL**; Chart.js for charts, Vite for assets only.
+- Use the official Laravel Livewire starter kit with **Teams support enabled**. Use **single-file Livewire components by default** for simple/medium components; use multi-file/class-based components when complexity warrants it.
+- Eloquent + Laravel migrations, policies and gates, built-in starter-kit/Fortify authentication.
+- Financial arithmetic: PostgreSQL `NUMERIC` with `brick/math` BigDecimal (or rigorously tested decimal-safe equivalent); never PHP float for official monetary totals.
+- Laravel HTTP client for provider adapters; Pest/PHPUnit and Laravel feature/Livewire tests.
+- **Single Laravel modular monolith.** No React, Express, Prisma, separate frontend/backend apps, microservices, or Redis. Use existing starter-kit structure; no unnecessary refactors.
+- **Tenancy mapping:** one Laravel Team is one AGOS Business. Team owner = Business Owner; Team membership roles = Manager or Bookkeeper. System Administrator is a separate global role. Use the starter kit's Team and membership tables as canonical; do not create duplicate Business or Membership tables. Extend existing tables through new migrations for AGOS-specific fields/roles.
+- Customize business onboarding to capture AGOS business profile details; an auto-created personal Team is not a fully configured business until onboarding is completed.
+- Livewire web actions call services directly. Add `/api/v1` REST routes only for explicit external consumers or contracts, sharing the same application services.
 
-If requirements conflict or a financial rule is unclear, stop and report
-the issue. Do not invent requirements or silently choose a business
-rule.
+## Database migrations and persistence
 
-## 2. Start with repository inspection
+- Every phase introducing new persistent data **must** include its Laravel migrations, Eloquent models, relationships, indexes, foreign keys, and database tests. Reuse and extend the starter-kit Team/membership schema for tenancy; do not create duplicate Business/Membership tables.
+- Do not edit migrations that have already been applied. Create a new migration for each subsequent schema change.
+- Verify migrations against PostgreSQL and test the relevant constraints and relationships before marking tasks complete.
 
-Before editing:
+## Financial, tenancy, and security invariants
 
--   Inspect the repository, package scripts, environment files, Prisma
-    schema, migrations, tests, and `git status`.
--   Identify existing functionality and the earliest incomplete task in
-    the implementation plan.
--   Verify task checkboxes against code and test evidence.
--   Preserve existing work; do not scaffold over or rewrite a working
-    project just to match an example structure.
+- Currency PHP (pesos), no FX conversion. Decimal strings at boundaries. UTC timestamps; `Asia/Manila` presentation.
+- Invoice/bill creation does not move confirmed cash. Link each real payment to exactly one cash movement. Never invent an opening balance; label incomplete history.
+- Distinguish confirmed, expected, uncertain, and optional cash flows. Implement deterministic cash, invoice, forecast, cash-gap, and scenario services on the server.
+- Hypothetical scenarios **never** modify actual financial records. AI only explains verified, evidence-linked calculations and candidate actions; reject unsupported output and fall back to rules.
+- Loyverse is **read-only**. Verify API fields; validate paid/unpaid, discounts, included taxes, refunds, split payments; quarantine invalid data; prevent duplicates and incomplete-sync publication.
+- Enforce Team membership, role permissions, and Team-scoped Eloquent queries in **every Livewire action, server request, queued job, import, and report**. The current Team selector is context, not authorization. System Admin has no default financial access.
+- Use Laravel password hashing, session rotation/invalidation, 30-minute idle timeout, CSRF middleware, authorization policies, authentication throttling, and audit events. Store secrets only in untracked `.env`; do not log tokens or unnecessary financial data.
 
-Start with repository reconnaissance. Report the current state and next
-task before making substantial changes.
+## Gotenberg on Render (512 MiB)
 
-## 3. Work incrementally
+- Gotenberg runs on Render, **not locally**, using `gotenberg/gotenberg:9-chromium`; AGOS connects from Laravel via HTTPS and HTTP Basic Authentication.
+- Render configuration: `API_PORT_FROM_ENV=PORT`, `API_ENABLE_BASIC_AUTH=true`, `GOTENBERG_API_BASIC_AUTH_USERNAME`, `GOTENBERG_API_BASIC_AUTH_PASSWORD`, `CHROMIUM_MAX_CONCURRENCY=1`, `CHROMIUM_MAX_QUEUE_SIZE=2`, `API_TIMEOUT=20s`; health check `/health`.
+- Laravel environment: `GOTENBERG_BASE_URL`, `GOTENBERG_USERNAME`, `GOTENBERG_PASSWORD` (backend only, never in browser source).
+- Use Laravel **database queue** with **one `pdf` worker**, a limit of **two pending reports**, and persisted report snapshots/HTML. No Redis needed.
+- Provider request timeout 20 seconds; job limit 60 seconds; at most one retry for transient 429/503. Reject or defer excess jobs safely. Confirm response is a PDF and matches report data.
+- Provide HTML preview and manual retry after failure. Never modify financial records because PDF generation fails. Monitor 512 MiB memory usage and avoid oversized HTML/images.
 
-For each task or small related task group:
+## Completion
 
-1.  State the task ID and intended result.
-2.  Inspect relevant code before editing.
-3.  Implement the smallest complete change.
-4.  Add or update tests.
-5.  Run relevant tests, type checks, lint, and build.
-6.  Review the diff for unrelated changes, secrets, and generated files.
-7.  Report changed files, verification results, blockers, and next task.
-8.  Mark tasks complete only after acceptance criteria are verified.
-
-Do not claim tests passed if they were not run. Do not begin a later
-phase while mandatory phase criteria remain unmet unless the user
-approves.
-
-## 4. Project scope and stack
-
-AGOS is a local-development and academic-demonstration application.
-
-Use the selected stack unless the user approves a change:
-
--   Frontend: React, TypeScript, Vite, Tailwind CSS, Recharts
--   Backend: Node.js, TypeScript, Express
--   Database: PostgreSQL
--   ORM/migrations: Prisma
--   Financial arithmetic: Decimal.js / Prisma Decimal
--   Tests: Jest or the test tools already configured
--   POS: Loyverse API, read-only
--   AI: Groq or Gemini through a provider-neutral adapter
--   PDF: Gotenberg hosted on Render
-
-Keep a modular monolith with REST APIs and one PostgreSQL database. Do
-not introduce microservices, Redis, queues, or extra infrastructure
-without a demonstrated requirement and user approval.
-
-The AGOS frontend, backend, and database run locally. The local backend
-calls the Render-hosted Gotenberg service over HTTPS. Keep the Gotenberg
-URL and any required service credential on the backend; never expose
-them to the browser. Verify the Render service's actual access-control
-configuration rather than assuming Gotenberg provides authentication
-itself.
-
-Do not deploy AGOS to production, create paid resources, or change
-external accounts without explicit authorization.
-
-## 5. Critical financial rules
-
--   Store monetary values as fixed-precision decimals. Never use
-    JavaScript `Number` for authoritative money calculations.
--   Serialize API monetary values as decimal strings.
--   Calculate cash, invoice balances, forecasts, cash gaps, and
-    scenarios in deterministic backend services---not in React or an AI
-    provider.
--   Use PHP as the default currency; do not add currency conversion
-    unless specified.
--   Store timestamps in UTC and display business dates using
-    `Asia/Manila`.
--   An invoice or supplier bill is an obligation, not a cash movement.
-    Record actual payments separately and prevent double-counting.
--   Do not invent opening balances. Mark incomplete financial history
-    clearly.
--   Keep confirmed cash, expected inflows/outflows, uncertain
-    collections, and optional expenses distinct.
--   Follow the FRS's Loyverse rules for paid amounts, discounts,
-    included tax, refunds, split payments, duplicates, and quarantined
-    records.
--   Keep hypothetical scenarios separate from actual financial records.
-    Scenario execution must never modify real transactions, invoices,
-    bills, or payments.
--   Every recommendation must reference supporting AGOS records or
-    calculations.
-
-If a financial rule is ambiguous, document the question and ask for a
-decision before implementing it.
-
-## 6. Security and data isolation
-
--   Enforce authentication, role permissions, and business-level data
-    isolation in backend operations.
--   Never trust a client-supplied business ID as authorization.
--   Validate all user input and external API responses.
--   Use parameterized queries or Prisma's safe query methods.
--   Hash passwords using a modern salted one-way algorithm.
--   Use server-managed sessions, rotate session IDs on login, expire
-    idle sessions, and revoke sessions on logout/password reset.
--   Use HttpOnly and SameSite cookies; use Secure cookies over HTTPS.
--   Apply CSRF protection to state-changing cookie-authenticated
-    requests and restrict CORS to the configured frontend origin.
--   Keep secrets in untracked `.env` files. Commit placeholders only in
-    `env.example`.
--   Never log passwords, tokens, API keys, full provider payloads, or
-    unnecessary personal/financial information.
--   System Administrators have no default access to business financial
-    records.
--   Test cross-business access for records, imports, scenarios, reports,
-    and audit events.
-
-Do not weaken security to make a local demo work.
-
-## 7. Integrations
-
-**Loyverse** - Read-only. Never create, edit, or delete POS records. -
-Verify current API documentation, fields, and permissions. - Preserve
-source IDs and sync timestamps; prevent duplicates. - Quarantine invalid
-or conflicting records. - Never mark an incomplete sync as successful.
-
-**Groq / Gemini** - Send only verified AGOS calculations and candidate
-actions. - Do not provide unrestricted database access. - Validate
-structured output and evidence references. - Reject malformed or
-unsupported actions. - Fall back to rule-based recommendations on
-timeout, outage, or invalid output. - AI must not calculate official
-financial values or modify records.
-
-### Gotenberg on Render
-
-- Use the Chromium-only Gotenberg v9 image (`gotenberg/gotenberg:9-chromium`); AGOS needs HTML-to-PDF, not LibreOffice conversion.
-- Render variables: `API_PORT_FROM_ENV=PORT`, `API_ENABLE_BASIC_AUTH=true`, `GOTENBERG_API_BASIC_AUTH_USERNAME`, `GOTENBERG_API_BASIC_AUTH_PASSWORD`, `CHROMIUM_MAX_CONCURRENCY=1`, `CHROMIUM_MAX_QUEUE_SIZE=2`, and `API_TIMEOUT=20s`.
-- Set Render's health check path to `/health`. The health endpoint is unauthenticated; keep it enabled.
-- Treat 512 MiB RAM as the documented minimum constrained configuration, not a guarantee for large or concurrent reports. Keep conversions sequential, avoid large images/documents, and monitor memory and logs.
-- The local backend calls Gotenberg over HTTPS using Basic Authentication. Configure `GOTENBERG_BASE_URL`, `GOTENBERG_USERNAME`, and `GOTENBERG_PASSWORD` in the backend environment. Keep credentials server-side.
-- Implement one active conversion at a time with a bounded pending queue; do not add Redis or another queue service for this requirement.
-- Use a 20-second Gotenberg request timeout and a 60-second overall report-job limit. Retry at most once for transient 429/503 responses; do not retry 400, 401, or 403.
-- Persist report input/data snapshots and generated HTML so users can preview and retry after PDF failure. PDF failure must not change financial records or discard report data.
-- Validate the response content type and generated PDF; verify report totals against AGOS data.
-
-Use mocks or fixtures when credentials or services are unavailable. Do
-not describe a mocked test as a successful live integration.
-
-## 8. Database, API, and Git practices
-
--   Use `/api/v1` for REST endpoints unless the project documents an
-    approved change.
--   Validate request bodies, parameters, and query strings; return
-    consistent errors without leaking internals.
--   Use versioned Prisma migrations. Do not edit migrations already
-    applied to shared data; create a new migration.
--   Review schema changes for data loss and provide a rollback approach.
--   Inspect `git status` before changes and preserve user modifications.
--   Do not reset, clean, force-push, rewrite history, or discard user
-    changes.
--   Do not commit unless asked.
--   Never commit `.env`, credentials, local database files, or private
-    demo data.
--   Avoid unrelated refactors and major dependency upgrades.
-
-## 9. Completion and handoff
-
-A task is done only when its acceptance criteria are implemented,
-relevant tests pass, authorization and error handling are present, and
-documentation is updated.
-
-At each task-group handoff, report:
-
--   Task IDs completed and pending
--   Files changed
--   Commands and tests run, with results
--   Migrations created/applied
--   Mocked or unverified integrations
--   Blockers and next task
-
-If work must pause, update `docs/implementation-status.md` with the
-current phase, last verified task, test status, blockers, and exact next
-task.
-
-A running server or successful build alone does not mean AGOS is
-complete.
+Run applicable `php artisan test`, Pint, migration checks, and `npm run build`. Test financial reconciliation, cross-business access, scenarios, import idempotency, adapter timeouts, and PDF outages. A running server or passing build alone does not prove task completion.

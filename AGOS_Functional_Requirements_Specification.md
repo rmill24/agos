@@ -2,8 +2,8 @@
 
 **System:** AGOS --- Adaptive Guidance and Operations System\
 **Document type:** Functional Requirements Specification\
-**Version:** 1.0\
-**Status:** Draft for development\
+**Version:** 1.2 — Laravel Teams and single-file Livewire baseline\
+**Status:** Development baseline\
 **Intended environment:** Local development, testing, and academic
 demonstration\
 **Currency and locale:** Philippine peso (PHP); `Asia/Manila` for
@@ -13,29 +13,29 @@ business-facing dates and times
 
 ## Document purpose and basis
 
-This specification translates the AGOS proposal into testable functional
-requirements. It retains the proposal's stated scope, terminology,
-integration boundaries, safeguards, and provisional acceptance targets.
+This specification defines AGOS's functional scope, user roles, business
+rules, integration boundaries, safeguards, and testable acceptance criteria.
 
-The implementation stack selected for this version is:
+The selected implementation stack is:
 
--   **Frontend:** React.js, TypeScript, and Vite
--   **Backend:** Node.js, TypeScript, and Express.js
--   **Database:** PostgreSQL
--   **Database access and migrations:** Prisma ORM
--   **Styling:** Tailwind CSS
--   **Charts:** Recharts
--   **Financial arithmetic:** Decimal.js and fixed-precision database
-    values
--   **API testing:** Postman
--   **Version control:** Git and GitHub
--   **External integrations:** Loyverse API, Groq API or Google Gemini
-    API, and Gotenberg
+- **Application:** Laravel 13 (PHP 8.3+) as a single modular monolith
+- **Interface:** Livewire 4 single-file components (default), Laravel Blade, Tailwind CSS, and starter-kit Flux UI components
+- **Teams and tenancy:** Official Laravel Livewire starter kit with Teams support enabled; one Laravel Team represents one AGOS Business
+- **Charts:** Chart.js integrated into Livewire pages
+- **Database:** PostgreSQL
+- **Persistence:** Eloquent ORM and Laravel database migrations
+- **Money arithmetic:** PostgreSQL `NUMERIC` and `brick/math` `BigDecimal` (or equivalently tested fixed-precision arithmetic)
+- **Authentication:** Laravel's official Livewire starter kit, Fortify/session authentication, policies, and gates
+- **Testing:** Pest or PHPUnit with Laravel HTTP/Livewire feature tests
+- **Assets:** Vite for compiling CSS and small JavaScript utilities (no separate React application)
+- **Version control:** Git and GitHub
+- **Integrations:** Loyverse API, Groq or Gemini API, and Gotenberg hosted on Render
 
-The application will use a **modular monolith** with RESTful APIs and
-separate provider adapters. The application is intended to run locally;
-production hosting and cloud deployment are not requirements for this
-implementation.
+Use single-file Livewire components by default for ordinary pages, forms, CRUD workflows, and dashboard widgets. Use multi-file or class-based components only when component size, testing, or complexity makes separation beneficial. Keep financial calculations and integration logic in dedicated services/adapters, not in component bodies.
+
+Laravel Teams is the canonical business-tenancy foundation. Extend the generated Team and team-membership schema for AGOS-specific business fields and roles; do not create duplicate Business or Membership tables.
+
+AGOS remains a **modular monolith**. Livewire components use Laravel services directly for the web UI; JSON REST endpoints under `/api/v1` are implemented only where an external consumer or an explicit contract requires them. Provider-specific HTTP integrations remain isolated behind server-side adapters. The AGOS application and PostgreSQL run locally; only the Gotenberg PDF service is hosted on Render.
 
 ## 1. Introduction
 
@@ -115,9 +115,16 @@ AGOS shall:
   -----------------------------------------------------------------------
   Term                                Meaning
   ----------------------------------- -----------------------------------
-  Business                            An MSME account whose financial
-                                      records are isolated from other
-                                      businesses.
+  Business                            One Laravel Team representing one
+                                      MSME account. Its Team ID is the
+                                      business scope for financial data.
+
+  Team Owner                         The Laravel Team owner mapped to the
+                                      AGOS Business Owner role.
+
+  Team Member                        A user belonging to a business Team;
+                                      the membership role maps to Manager
+                                      or Bookkeeper / Finance Staff.
 
   Confirmed cash                      Cash already received or paid and
                                       supported by confirmed records.
@@ -168,7 +175,22 @@ AGOS shall:
 4.  **System Administrator** --- manages technical platform settings and
     has no default access to business financial records.
 
-### 2.2 Permission matrix
+### 2.2 Business tenancy and Laravel Teams mapping
+
+The Laravel starter kit's Teams feature shall be enabled. Each Laravel
+Team represents one AGOS Business, and the Team ID is the canonical
+business identifier used to scope financial records.
+
+- Team owner maps to **Business Owner**.
+- Team membership roles map to **Manager** and **Bookkeeper / Finance Staff**.
+- System Administrator is a separate global platform role, not a business Team role.
+- Use the starter kit's existing Team and membership/pivot tables as the canonical tenancy records. Extend them with new migrations for AGOS-specific business profile fields or role values.
+- Do not create duplicate `Business` or `Membership` tables for the same concepts.
+- Customize business onboarding so the Team name and required business profile details are captured. Do not treat an automatically created personal Team as a fully configured AGOS business until onboarding is complete.
+- A user may belong to multiple business Teams where authorized. The current Team is a navigation context only; every query, Livewire action, job, import, and report must independently verify membership and authorization.
+- Team switching must not permit access to another business's records without membership and permission checks.
+
+### 2.3 Permission matrix
 
   --------------------------------------------------------------------------------
   Capability        Business Owner        Manager     Bookkeeper /          System
@@ -1146,7 +1168,7 @@ schedule; **Could** = optional enhancement.
 
 ### 4.1 User interface
 
-The React application shall provide responsive pages or views for:
+The Laravel Blade and Livewire interface shall provide responsive pages or views for:
 
 -   Sign-in and session handling
 -   Dashboard and cash overview
@@ -1161,33 +1183,14 @@ The React application shall provide responsive pages or views for:
 -   Reports and PDF preview/download
 -   Business settings, users, and audit events according to role
 
-### 4.2 Backend API
+### 4.2 Web routes, Livewire actions, and optional REST API
 
-The Express backend shall expose versioned REST endpoints under
-`/api/v1`. The proposal identifies these example routes:
-
--   `/api/v1/transactions`
--   `/api/v1/invoices`
--   `/api/v1/scenarios`
--   `/api/v1/recommendations`
--   `/api/v1/integrations/loyverse`
--   `/api/v1/reports`
-
-Additional resource routes may be added for authentication, users,
-businesses, customers, suppliers, bills, payments, imports, and audit
-events.
-
-The API shall:
-
--   Use JSON for normal requests and responses.
--   Use standard HTTP methods and status codes.
--   Validate request bodies, parameters, and authenticated business
-    scope.
--   Return consistent error structures.
--   Document endpoint contracts, authentication, fields, validation,
-    success and error responses, timeout behavior, and fallback
-    behavior.
--   Keep provider-specific payloads inside their adapters.
+- Authenticated users access AGOS through Laravel `web.php` routes, Blade layouts, and Livewire components.
+- Livewire actions call authorized Laravel application services; the UI does not need duplicate JSON endpoints for every CRUD operation.
+- A versioned JSON API (`/api/v1`) may be exposed where required for an external client or a documented integration contract. Example resources include `/api/v1/transactions`, `/api/v1/invoices`, `/api/v1/scenarios`, `/api/v1/recommendations`, `/api/v1/integrations/loyverse`, and `/api/v1/reports`.
+- When a JSON API is provided, it shall use documented schemas, standard methods and status codes, business-scoped authorization, validation, predictable error responses, and appropriate authentication.
+- External provider HTTP calls shall use backend adapters and never expose provider credentials to the browser.
+- The deterministic calculation and business services shall be shared by Livewire views, scheduled commands/jobs, and any optional API endpoints; no duplicate business-rule implementations are permitted.
 
 ### 4.3 Loyverse interface
 
@@ -1214,13 +1217,14 @@ The API shall:
 
 ### 4.5 Gotenberg interface
 
--   AGOS shall prepare an HTML report from validated application data.
--   The backend shall submit the HTML to a locally accessible Gotenberg
-    service.
--   Gotenberg shall return a PDF response.
--   The application shall handle timeout and service failure without
-    changing financial records.
--   The Gotenberg URL shall be configurable.
+- AGOS shall render authorized, validated report data into HTML using Laravel Blade templates.
+- The Laravel backend shall submit the HTML via HTTPS and server-side Basic Authentication to **Render-hosted Gotenberg** (Chromium-only image), never directly from the browser.
+- Gotenberg shall return a PDF response with `application/pdf` content type; AGOS shall verify the response and report totals.
+- The Gotenberg instance has a 512 MiB RAM allocation; configure one active Chromium conversion and at most two queued requests.
+- For AGOS, generate PDFs sequentially through one local Laravel **database-queue worker**, with a maximum of two pending report jobs and no Redis dependency. Reject or defer additional work safely.
+- Use a 20-second Gotenberg request timeout and a 60-second report job limit. Retry at most once on transient 429/503 responses; do not retry authentication or validation failures.
+- Preserve the validated report snapshot and HTML preview for manual retry after failure. A failed PDF conversion shall never modify financial records.
+- Configure service URL and Basic Authentication values only through backend environment settings; the Render service has separate secret variables.
 
 ### 4.6 File interfaces
 
@@ -1254,8 +1258,7 @@ on client-supplied business IDs as proof of authorization.
 -   The default currency is PHP.
 -   Monetary values shall use fixed-precision decimal storage and
     arithmetic.
--   Do not use JavaScript `Number` floating-point arithmetic for
-    authoritative financial totals.
+-   Do not use PHP `float` or JavaScript `Number` for authoritative financial totals; use fixed-precision decimal strings and `BigDecimal`.
 -   Store timestamps in UTC.
 -   Display business-facing dates and times using `Asia/Manila`.
 -   The first release shall not perform currency conversion.
@@ -1349,7 +1352,7 @@ provider guarantees.
 Although this document focuses on functional requirements, the following
 constraints affect whether the functions are acceptable:
 
-1.  Use parameterized queries or Prisma's safe query mechanisms.
+1.  Use Eloquent ORM or parameter-bound Laravel query builder statements.
 2.  Validate all user input and external API responses.
 3.  Store passwords using a modern salted one-way password-hashing
     algorithm.
@@ -1357,13 +1360,11 @@ constraints affect whether the functions are acceptable:
     files.
 5.  Use server-side authorization for every protected operation.
 6.  Apply CSRF protection to state-changing session requests and
-    restrict CORS to the local frontend origin during development.
+    use Laravel CSRF middleware for web/Livewire requests. Restrict CORS only if a separate JSON API is exposed.
 7.  Keep secrets and unnecessary personal or financial information out
     of logs.
-8.  Use versioned Prisma migrations and test migration/rollback
-    procedures.
-9.  Keep the backend calculation engine authoritative for all official
-    financial values.
+8.  Use versioned Laravel migrations and test migration/rollback procedures.
+9.  Keep the Laravel service-layer calculation engine authoritative for all official financial values.
 10. Use separate adapters for Loyverse, AI, and Gotenberg.
 
 ## 8. Acceptance and verification
@@ -1431,28 +1432,19 @@ A requirement is complete when:
 -   The feature does not violate business-level data isolation or the
     separation between actual and hypothetical records.
 
-## 9. Traceability to the proposal
+## 9. Implementation baseline and traceability
 
-This FRS is based on the AGOS proposal's problem context, proposed
-integrations, integration approach, API and data formats, construction
-standards, identity and authorization rules, audit requirements, testing
-strategy, six-sprint arrangement, and principal technical risk and
-mitigations.
+The AGOS business functions, user roles, financial calculation rules, external integrations, audit requirements, and acceptance criteria are defined in this FRS. The implementation baseline is **Laravel 13 + Livewire 4 + PostgreSQL** for local development.
 
-The following implementation choices are selected to make the
-requirements executable in the agreed local stack; they are not
-presented as technologies mandated by the original proposal:
+- One Laravel modular monolith provides the application, UI, and server-side business logic.
+- Livewire single-file components and Blade provide the UI; Chart.js provides charts.
+- Eloquent models and Laravel database migrations manage persistence.
+- `brick/math` `BigDecimal` (or equivalently tested decimal-safe arithmetic) provides fixed-precision application arithmetic.
+- Laravel's official Livewire starter kit is configured with Teams support. The generated Team is the AGOS Business; its owner and membership roles are mapped to AGOS roles without duplicate tenancy tables.
+- Single-file Livewire components are the default for simple and medium-sized UI components; complex components may use multi-file or class-based formats.
+- Laravel session authentication, policies, authorization middleware, and Team membership checks supply the application foundation.
+- Laravel HTTP client and dedicated adapters implement read-only Loyverse sync, AI explanations, and PDF generation.
+- **Gotenberg remains hosted on Render**, with Basic Authentication and 512 MiB resource constraints. AGOS and its database stay local.
+- The UI uses server-side Livewire actions; `/api/v1` REST endpoints are built only where needed by a documented contract, without duplicating business services.
 
--   React.js, TypeScript, and Vite for the frontend
--   Node.js, TypeScript, and Express.js for the backend
--   PostgreSQL and Prisma for persistence
--   Tailwind CSS and Recharts for presentation
--   Decimal.js for application-level decimal arithmetic
--   Local Gotenberg execution rather than Render-hosted Gotenberg
--   Localhost-only application execution rather than production
-    deployment
-
-Where a requirement depends on provider-specific API capabilities or
-credentials, the team must verify the current provider documentation and
-available account access during implementation. The FRS does not assume
-unsupported API fields or capabilities.
+The functional requirement identifiers and acceptance criteria remain in effect. Provider-specific API fields and account access must be verified from current documentation during implementation; unsupported capabilities must not be assumed.
