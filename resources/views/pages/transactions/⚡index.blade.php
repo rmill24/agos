@@ -151,8 +151,10 @@ new #[Title('Transactions')] class extends Component
         return Transaction::forTeam($this->team)
             ->with('category')
             ->when($this->search !== '', fn ($query) => $query->where(function ($query) {
-                $query->where('description', 'like', '%'.$this->search.'%')
-                    ->orWhere('source_reference', 'like', '%'.$this->search.'%');
+                $search = '%'.mb_strtolower($this->search, 'UTF-8').'%';
+
+                $query->whereRaw('LOWER(description) LIKE ?', [$search])
+                    ->orWhereRaw('LOWER(source_reference) LIKE ?', [$search]);
             }))
             ->when($this->directionFilter !== 'all', fn ($query) => $query->where('direction', $this->directionFilter))
             ->when($this->categoryFilter !== 'all', fn ($query) => $query->where('category_id', (int) $this->categoryFilter))

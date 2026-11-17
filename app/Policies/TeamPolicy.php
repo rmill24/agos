@@ -105,4 +105,12 @@ class TeamPolicy
     {
         return ! $user->isSystemAdministrator() && $user->ownsTeam($team);
     }
+
+    /**
+     * Determine whether the user may edit the business profile.
+     */
+    public function updateBusinessProfile(User $user, Team $team): bool
+    {
+        return ! $user->isSystemAdministrator() && $user->ownsTeam($team);
+    }
 }

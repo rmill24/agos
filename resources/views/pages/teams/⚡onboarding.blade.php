@@ -1,12 +1,10 @@
 <?php
 
 use App\Models\Team;
-use App\Rules\TeamName;
+use App\Services\BusinessProfileService;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -34,6 +32,12 @@ new #[Title('Business onboarding')] class extends Component
 
     public string $postalCode = '';
 
+    public string $countryCode = 'PH';
+
+    public string $currencyCode = 'PHP';
+
+    public string $timezone = 'Asia/Manila';
+
     public function mount(Team $current_team): void
     {
         Gate::authorize('completeOnboarding', $current_team);
@@ -49,57 +53,18 @@ new #[Title('Business onboarding')] class extends Component
         $this->city = $current_team->city ?? '';
         $this->province = $current_team->province ?? '';
         $this->postalCode = $current_team->postal_code ?? '';
+        $this->countryCode = $current_team->country_code ?? 'PH';
+        $this->currencyCode = $current_team->currency_code ?? 'PHP';
+        $this->timezone = $current_team->timezone ?? 'Asia/Manila';
     }
 
-    public function completeOnboarding(): void
+    public function completeOnboarding(BusinessProfileService $profileService): void
     {
         Gate::authorize('completeOnboarding', $this->team);
 
-        $validated = Validator::make([
-            'teamName' => $this->teamName,
-            'legalName' => $this->legalName,
-            'businessType' => $this->businessType,
-            'contactEmail' => $this->contactEmail,
-            'contactPhone' => $this->contactPhone,
-            'addressLine1' => $this->addressLine1,
-            'addressLine2' => $this->addressLine2,
-            'city' => $this->city,
-            'province' => $this->province,
-            'postalCode' => $this->postalCode,
-        ], [
-            'teamName' => ['required', 'string', 'max:255', new TeamName],
-            'legalName' => ['required', 'string', 'max:255'],
-            'businessType' => ['required', 'string', 'max:100'],
-            'contactEmail' => ['required', 'email', 'max:255'],
-            'contactPhone' => ['nullable', 'string', 'max:50'],
-            'addressLine1' => ['required', 'string', 'max:255'],
-            'addressLine2' => ['nullable', 'string', 'max:255'],
-            'city' => ['required', 'string', 'max:100'],
-            'province' => ['required', 'string', 'max:100'],
-            'postalCode' => ['required', 'string', 'max:20'],
-        ])->validate();
+        $validated = $this->validate($profileService->rules());
 
-        DB::transaction(function () use ($validated): void {
-            $team = Team::query()->whereKey($this->team->id)->lockForUpdate()->firstOrFail();
-
-            Gate::forUser(Auth::user())->authorize('completeOnboarding', $team);
-
-            $team->update([
-                'name' => $validated['teamName'],
-                'legal_name' => $validated['legalName'],
-                'business_type' => $validated['businessType'],
-                'contact_email' => $validated['contactEmail'],
-                'contact_phone' => $validated['contactPhone'] ?: null,
-                'address_line1' => $validated['addressLine1'],
-                'address_line2' => $validated['addressLine2'] ?: null,
-                'city' => $validated['city'],
-                'province' => $validated['province'],
-                'postal_code' => $validated['postalCode'],
-                'onboarding_completed_at' => now(),
-            ]);
-
-            $this->team = $team->fresh();
-        });
+        $this->team = $profileService->completeOnboarding(Auth::user(), $this->team, $validated);
 
         Flux::toast(variant: 'success', text: __('Business onboarding completed.'));
 
@@ -122,8 +87,9 @@ new #[Title('Business onboarding')] class extends Component
                 <flux:input wire:model="province" :label="__('Province')" required />
                 <flux:input wire:model="postalCode" :label="__('Postal code')" required />
             </div>
-            <flux:input :label="__('Currency')" value="PHP" disabled />
-            <flux:input :label="__('Business timezone')" value="Asia/Manila" disabled />
+            <flux:input wire:model="countryCode" :label="__('Country code')" maxlength="2" required />
+            <flux:input wire:model="currencyCode" :label="__('Currency')" maxlength="3" readonly required />
+            <flux:input wire:model="timezone" :label="__('Business timezone')" required />
             <flux:button type="submit" variant="primary">{{ __('Complete onboarding') }}</flux:button>
         </form>
     </x-pages::settings.layout>

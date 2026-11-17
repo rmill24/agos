@@ -115,6 +115,7 @@ class TransactionUiTest extends TestCase
         Transaction::factory()->create([
             'team_id' => $team->id,
             'description' => 'Customer payment',
+            'source_reference' => 'Invoice-ABC-123',
             'direction' => 'income',
         ]);
         $otherTeam = Team::factory()->create(['onboarding_completed_at' => now()]);
@@ -123,11 +124,14 @@ class TransactionUiTest extends TestCase
         $this->actingAs($owner);
 
         Livewire::test('pages::transactions.index', ['current_team' => $team])
-            ->set('search', 'Office')
+            ->set('search', 'office')
             ->assertSee('Office rent')
             ->assertDontSee('Customer payment')
             ->set('directionFilter', 'expense')
-            ->assertSee('Office rent');
+            ->assertSee('Office rent')
+            ->set('directionFilter', 'all')
+            ->set('search', 'invoice-abc')
+            ->assertSee('Customer payment');
     }
 
     public function test_invalid_amount_is_rejected_without_creating_a_transaction(): void
