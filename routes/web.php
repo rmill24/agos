@@ -13,6 +13,12 @@ Route::prefix('{current_team}')
         Route::view('dashboard', 'dashboard')
             ->middleware(EnsureBusinessOnboarding::class)
             ->name('dashboard');
+        Route::livewire('categories', 'pages::categories.index')
+            ->middleware(EnsureBusinessOnboarding::class)
+            ->name('categories.index');
+        Route::livewire('transactions', 'pages::transactions.index')
+            ->middleware(EnsureBusinessOnboarding::class)
+            ->name('transactions.index');
     });
 
 require __DIR__.'/settings.php';

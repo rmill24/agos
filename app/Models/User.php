@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -36,6 +37,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property-read Collection<int, Team> $ownedTeams
  * @property-read Collection<int, Membership> $teamMemberships
  * @property-read Collection<int, Team> $teams
+ * @property-read Collection<int, Transaction> $recordedTransactions
+ * @property-read Collection<int, AuditEvent> $auditEvents
  */
 #[Fillable(['name', 'email', 'password', 'current_team_id'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -85,5 +88,25 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function hasGlobalRole(GlobalRole $role): bool
     {
         return $this->global_role === $role;
+    }
+
+    /**
+     * Get transactions recorded by this user.
+     *
+     * @return HasMany<Transaction, $this>
+     */
+    public function recordedTransactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class, 'recorded_by');
+    }
+
+    /**
+     * Get audit events caused by this user.
+     *
+     * @return HasMany<AuditEvent, $this>
+     */
+    public function auditEvents(): HasMany
+    {
+        return $this->hasMany(AuditEvent::class, 'actor_id');
     }
 }
