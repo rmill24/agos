@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <title>
-    {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
+    {{ filled($title ?? null) ? $title.' - AGOS' : 'AGOS — Financial clarity for growing businesses' }}
 </title>
 
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -13,3 +13,9 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
+<script>
+    // AGOS defaults to light surfaces while preserving explicit user choices.
+    if (! window.localStorage.getItem('flux.appearance')) {
+        window.Flux.applyAppearance('light');
+    }
+</script>

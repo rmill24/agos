@@ -4,7 +4,23 @@ use App\Http\Middleware\EnsureBusinessOnboarding;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', function () {
+    if (! auth()->check()) {
+        return view('welcome');
+    }
+
+    $team = auth()->user()->currentTeam;
+
+    if ($team && ! $team->is_personal && $team->isOnboardingComplete()) {
+        return redirect()->route('dashboard', ['current_team' => $team->slug]);
+    }
+
+    if ($team) {
+        return redirect()->route('teams.onboarding', ['current_team' => $team->slug]);
+    }
+
+    return view('welcome');
+})->name('home');
 
 Route::prefix('{current_team}')
     ->middleware(['auth', 'verified', EnsureTeamMembership::class])

@@ -1,36 +1,33 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+    <body class="min-h-screen bg-slate-50">
+        <flux:sidebar sticky collapsible="mobile" class="border-e border-slate-200 bg-white">
             <flux:sidebar.header>
-                <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+                <x-app-logo :sidebar="true" href="{{ route('dashboard', ['current_team' => auth()->user()->currentTeam?->slug]) }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
             </flux:sidebar.header>
 
             <livewire:team-switcher />
 
             <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Platform')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                <flux:sidebar.group :heading="__('Workspace')" class="grid">
+                    <flux:sidebar.item icon="home" :href="route('dashboard', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="arrows-right-left" :href="route('transactions.index', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('transactions.*')" wire:navigate>{{ __('Transactions') }}</flux:sidebar.item>
+                    <flux:sidebar.item icon="tag" :href="route('categories.index', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('categories.*')" wire:navigate>{{ __('Categories') }}</flux:sidebar.item>
                 </flux:sidebar.group>
+                <div class="agos-nav-label">{{ __('Settings') }}</div>
+                <flux:sidebar.item icon="cog-6-tooth" :href="route('business.edit')" :current="request()->routeIs('business.*')" wire:navigate>{{ __('Business Profile') }}</flux:sidebar.item>
+                <flux:sidebar.item icon="users" :href="route('teams.index')" :current="request()->routeIs('teams.*')" wire:navigate>{{ __('Team Management') }}</flux:sidebar.item>
             </flux:sidebar.nav>
 
             <flux:spacer />
 
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
-                </flux:sidebar.item>
-
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
+            <flux:sidebar.nav><flux:text class="px-3 text-xs text-slate-400">{{ __('AGOS workspace') }}</flux:text></flux:sidebar.nav>
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
