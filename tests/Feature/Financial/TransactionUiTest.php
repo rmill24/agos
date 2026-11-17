@@ -84,6 +84,15 @@ class TransactionUiTest extends TestCase
         ]);
         $this->assertDatabaseHas('audit_events', ['event_type' => 'transaction.created']);
         $this->assertDatabaseHas('audit_events', ['event_type' => 'transaction.updated']);
+        $updatedAudit = AuditEvent::query()
+            ->where('team_id', $team->id)
+            ->where('actor_id', $owner->id)
+            ->where('event_type', 'transaction.updated')
+            ->firstOrFail();
+        $this->assertSame('1250.50', $updatedAudit->before_values['amount']);
+        $this->assertSame('250.25', $updatedAudit->after_values['amount']);
+        $this->assertSame(Transaction::class, $updatedAudit->auditable_type);
+        $this->assertSame($transaction->id, $updatedAudit->auditable_id);
 
         Livewire::test('pages::transactions.index', ['current_team' => $team])
             ->call('archiveTransaction', $transaction->id)
