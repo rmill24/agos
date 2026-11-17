@@ -1,6 +1,6 @@
 # AGOS Implementation Plan
 
-**Version:** 4.1 · **Environment:** local AGOS app + PostgreSQL; Render-hosted Gotenberg · **Delivery:** setup + six two-week phases.
+**Version:** 4.2 · **Environment:** local AGOS app + PostgreSQL; Render-hosted Gotenberg · **Delivery:** setup + six two-week phases.
 
 ## 1. Working agreement
 
@@ -32,6 +32,24 @@
 ### Livewire component convention
 
 Single-file components (SFCs) are the default for simple and medium-sized pages, forms, CRUD flows, and dashboard widgets. Use multi-file or class-based components when a component becomes complex or needs clearer separation. Keep financial rules and integrations in service/adapter classes.
+
+### UI/UX design standard
+
+AGOS should look and behave like one coherent, professional financial-management/SaaS application—not a collection of unrelated generated pages.
+
+- **Visual direction:** modern, clean, professional fintech; prioritize clarity and trust over decoration.
+- **Theme:** use a documented semantic palette with deep navy/blue as the primary brand direction, neutral surfaces, and semantic success (green), warning (amber), and danger (red) states. Select exact values once and store them in shared theme/CSS tokens; do not scatter arbitrary hex values across pages.
+- **Typography and layout:** use a readable sans-serif typeface, consistent heading hierarchy, spacing scale, borders, radii, and restrained shadows.
+- **Application shell:** shared sidebar/navigation, top header, active-business context, page title/breadcrumb where useful, and role-aware navigation. Users must not depend on clicking the Laravel logo to find business workflows.
+- **Components:** reuse Flux UI and shared Blade/Livewire components for buttons, inputs, validation, tables, filters, dialogs, confirmations, notifications, badges/statuses, empty states, and loading indicators.
+- **Financial clarity:** prioritize current cash, projected cash, thresholds, shortfalls, overdue items, and recommendations according to the page. Always label PHP values, dates, chart units, and statuses. Never communicate status by color alone.
+- **Interaction states:** every data-driven page must handle loading, empty, success, validation-error, and service-failure states. Prevent accidental duplicate submissions and confirm destructive or consequential actions.
+- **Responsive design:** support desktop, tablet, and mobile. Tables may use responsive columns or contained horizontal scrolling, but core actions and information must remain usable.
+- **Accessibility:** target WCAG 2.2 AA principles where applicable: keyboard access, visible focus, semantic markup, accessible labels, contrast, and understandable validation feedback.
+- **Charts:** Chart.js charts need titles, units, legends/labels, selected period, and a textual summary of key values.
+- **Avoid:** unnecessary gradients, excessive animation, inconsistent colors, decorative clutter, dense financial tables, and one-off styling when a shared component exists.
+
+Review every new page for visual consistency, responsiveness, accessibility, and usability as part of that feature's acceptance criteria. Do not defer core usability until the final polish phase.
 
 ### Core boundaries
 
@@ -77,7 +95,8 @@ Single-file components (SFCs) are the default for simple and medium-sized pages,
 
 ### P2 — Receivables, payables, and CSV
 
-- **P2-T01:** Implement Customer and Supplier screens and business-scoped models.
+- **P2-T00 — UI/UX foundation:** Review existing onboarding, business profile, dashboard, category, and transaction screens. Establish shared design tokens and the authenticated application shell; align navigation, active-business context, page headers, typography, spacing, and Flux UI usage. Standardize reusable form, table, filter, dialog, notification, loading, empty, and error patterns. Check desktop, tablet, and mobile layouts and applicable WCAG 2.2 AA basics. Refactor existing pages only where needed for consistency; preserve working workflows.
+- **P2-T01:** Implement Customer and Supplier screens and business-scoped models using the shared AGOS layout and UI patterns.
 - **P2-T02:** Add invoices, invoice totals, outstanding balances, customer payments, and overdue detection.
 - **P2-T03:** Add supplier bills, payments, balances, and due-date monitoring.
 - **P2-T04:** Implement CSV preview/mapping/validation/duplicate review, reviewed commit, and row-numbered error report.
@@ -153,7 +172,7 @@ Laravel must send Basic Auth through its HTTP client (not the browser). Use `QUE
 
 ## 5. Verification and handoff
 
-Test the relevant unit, feature/Livewire, database, authorization, provider-contract, and failure paths for each task. Suggested commands:
+Test the relevant unit, feature/Livewire, database, authorization, provider-contract, and failure paths for each task. For every UI task, review consistency with shared tokens/components, role-aware navigation, loading/empty/success/error states, responsive behavior at desktop/tablet/mobile sizes, keyboard access, visible focus, and clear financial labels. Add browser/manual acceptance checks where automated tests cannot reliably assess visual usability. Suggested commands:
 
 ```bash
 php artisan test

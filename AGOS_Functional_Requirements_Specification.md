@@ -2,7 +2,7 @@
 
 **System:** AGOS --- Adaptive Guidance and Operations System\
 **Document type:** Functional Requirements Specification\
-**Version:** 1.2 — Laravel Teams and single-file Livewire baseline\
+**Version:** 1.3 — UI/UX and usability requirements added\
 **Status:** Development baseline\
 **Intended environment:** Local development, testing, and academic
 demonstration\
@@ -1164,24 +1164,67 @@ schedule; **Could** = optional enhancement.
                                                          implementation.
   ---------------------------------------------------------------------------
 
+### 3.14 User experience and interface behavior
+
+| ID | Priority | Requirement | Acceptance criteria |
+|---|---|---|---|
+| FR-UI-01 | Must | The system shall use a consistent application shell across authenticated business pages. | Pages share consistent navigation, page headers, business context, content spacing, and responsive behavior. |
+| FR-UI-02 | Must | The system shall show navigation items according to the authenticated user's role and business permissions. | Users do not see links to unavailable functions, and direct URL/action access is still denied by backend authorization. |
+| FR-UI-03 | Must | The system shall use shared visual tokens and reusable UI patterns for colors, typography, spacing, borders, buttons, forms, tables, dialogs, and notifications. | Equivalent controls look and behave consistently across modules; one-off styling is avoided where a shared component exists. |
+| FR-UI-04 | Must | Forms shall provide clear labels, required-field indicators, input guidance, and field-level validation feedback. | Invalid input is identified next to the relevant field; errors are understandable and do not expose technical details. |
+| FR-UI-05 | Must | Data tables shall provide appropriate search, filtering, sorting, pagination, and empty states for the amount and type of data displayed. | Users can identify active filters, clear them, and understand when no records match. |
+| FR-UI-06 | Must | The interface shall provide loading, success, validation-error, empty, and failure states for asynchronous and data-dependent actions. | Users receive visible feedback during Livewire requests and after successful or failed operations; duplicate submissions are prevented where necessary. |
+| FR-UI-07 | Must | Destructive or consequential actions shall require an appropriate confirmation or clear review step. | Archiving, deleting, removing a team member, or committing an import cannot happen accidentally; confirmation identifies the affected item/action. |
+| FR-UI-08 | Must | Financial values and statuses shall be presented consistently and clearly. | PHP amounts use consistent currency formatting; dates use the business timezone; status is not communicated by color alone and includes text or an accessible icon/label. |
+| FR-UI-09 | Must | The interface shall prioritize important financial information and distinguish confirmed, expected, uncertain, and optional cash-flow items. | Labels, visual hierarchy, legends, and supporting text make the meaning of each amount understandable without relying on color alone. |
+| FR-UI-10 | Must | The application shall adapt to desktop, tablet, and mobile viewport sizes. | Core navigation, forms, tables, dashboards, and actions remain usable without unintended horizontal overflow at supported viewport sizes. |
+| FR-UI-11 | Should | The interface shall follow WCAG 2.2 AA accessibility principles where applicable. | Keyboard navigation, visible focus, semantic structure, accessible names/labels, sufficient text and control contrast, and understandable validation feedback are tested. |
+| FR-UI-12 | Should | Charts and visual summaries shall include titles, units, legends or labels, and an accessible textual explanation of the data. | Users can understand the chart's subject, time range, units, and series; key values are not available only through color or hover. |
+| FR-UI-13 | Must | The interface shall maintain consistent navigation and feedback across business onboarding, business profile settings, financial modules, and reports. | Users can identify their active business, understand their current location, and return to relevant sections without relying on the Laravel logo or browser history. |
+
+The visual direction shall be a modern, clean, professional financial-management/SaaS interface. The implementation shall use the existing Laravel Livewire starter kit, Blade, Tailwind CSS, and Flux UI components consistently. The design system shall define semantic colors, typography, spacing, borders, radii, and elevation. Exact theme values may be selected during implementation, but must be documented and reused.
+
+The application shell should provide role-aware navigation, a clear active-business context, page titles, and consistent content layout. Financial information should be visually prioritized without excessive decoration, animation, gradients, or dense presentation.
+
+### 3.15 UI/UX quality acceptance
+
+A UI feature is acceptable only when its core workflow has been reviewed for:
+
+- Visual consistency with the shared AGOS design system.
+- Responsive usability on desktop, tablet, and mobile.
+- Clear loading, empty, success, validation, and failure states.
+- Keyboard operation and visible focus.
+- Readable financial values, dates, and status labels.
+- Role-aware navigation plus backend authorization.
+- Appropriate confirmation for destructive or consequential actions.
+- No reliance on color alone to communicate financial meaning.
+
 ## 4. External interface requirements
 
 ### 4.1 User interface
 
 The Laravel Blade and Livewire interface shall provide responsive pages or views for:
 
--   Sign-in and session handling
--   Dashboard and cash overview
--   Transactions and categories
--   Customers and suppliers
--   Invoices, payments, bills, receivables, and payables
--   CSV import and import results
--   Loyverse connection and synchronization status
--   Scenario Simulator and purchase-affordability analysis
--   Action Center and recommendation evidence
--   Financing-readiness checklist
--   Reports and PDF preview/download
--   Business settings, users, and audit events according to role
+- Sign-in, registration, session handling, and business onboarding
+- Dashboard and cash overview
+- Transactions and categories
+- Customers and suppliers
+- Invoices, payments, bills, receivables, and payables
+- CSV import, mapping, preview, and import results
+- Loyverse connection and synchronization status
+- Scenario Simulator and purchase-affordability analysis
+- Action Center and recommendation evidence
+- Financing-readiness checklist
+- Reports and PDF preview/download
+- Business profile, Team users, settings, and audit events according to role
+
+The interface shall use a shared authenticated application shell with role-aware navigation, active-business context, consistent page headers, and reusable layout patterns. Use Tailwind CSS and the installed Flux UI components consistently rather than introducing competing component libraries without approval.
+
+Forms, tables, dialogs, notifications, buttons, status indicators, loading states, and empty states shall follow shared patterns. Financial amounts shall use consistent PHP formatting; dates shall use the business timezone. Charts shall identify their units, periods, and series and provide a textual explanation of key information.
+
+Responsive behavior is required for desktop, tablet, and mobile. Accessibility should follow WCAG 2.2 AA principles where applicable, including keyboard access, visible focus, semantic markup, accessible labels, and sufficient contrast. Do not communicate financial status through color alone.
+
+The visual hierarchy shall prioritize current cash, projected cash, cash-safety threshold, shortfall warnings, overdue obligations, and recommended actions according to the page's purpose. Avoid excessive decoration, animation, gradients, and unnecessary visual density.
 
 ### 4.2 Web routes, Livewire actions, and optional REST API
 
@@ -1395,6 +1438,7 @@ interface/contract, failure, authorization, and acceptance tests.
     wording
 -   PDF totals, generated content, timeout, and retry behavior
 -   Audit event completeness and secret redaction
+-   UI/UX consistency, role-aware navigation, form validation and feedback, loading/empty/error states, destructive-action confirmation, responsive layouts, keyboard navigation, and chart accessibility
 
 ### 8.2 Provisional performance acceptance targets
 
@@ -1429,6 +1473,7 @@ A requirement is complete when:
     values.
 -   The UI communicates errors, stale data, incomplete data, and
     fallback states clearly.
+-   The UI meets applicable FR-UI-01 through FR-UI-13 requirements, including consistency, responsive behavior, accessibility, and financial information clarity.
 -   The feature does not violate business-level data isolation or the
     separation between actual and hypothetical records.
 

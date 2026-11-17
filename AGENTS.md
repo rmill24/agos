@@ -28,6 +28,29 @@ Applicable to any repository-aware coding agent.
 - Do not edit migrations that have already been applied. Create a new migration for each subsequent schema change.
 - Verify migrations against PostgreSQL and test the relevant constraints and relationships before marking tasks complete.
 
+## UI/UX and frontend design standards
+
+AGOS must have a consistent, professional financial-management interface.
+
+- Follow a modern, clean fintech/SaaS visual direction.
+- Use Tailwind CSS and the installed Flux UI components consistently.
+- Establish reusable design tokens for colors, typography, spacing, borders, radii, and shadows.
+- Use a consistent application shell with sidebar navigation, page headers, business context, and role-aware navigation.
+- Keep layouts consistent across dashboard, transactions, categories, customers, suppliers, invoices, reports, and settings.
+- Use consistent patterns for forms, tables, filters, dialogs, notifications, and confirmation actions.
+- Provide loading, empty, success, validation-error, and failure states.
+- Format PHP amounts and business dates consistently.
+- Use responsive layouts for desktop, tablet, and mobile.
+- Follow WCAG 2.2 AA accessibility principles where applicable: keyboard access, visible focus, sufficient contrast, semantic markup, accessible labels, and clear validation feedback.
+- Avoid unnecessary visual effects, inconsistent colors, excessive animations, and duplicated UI components.
+- Keep financial information visually prioritized and easy to interpret.
+- Never use color alone to communicate financial status; include labels or icons.
+- Reuse existing components and design tokens rather than creating one-off styles.
+
+Every new page must be reviewed for visual consistency, responsive behavior, accessibility, and usability before its task is marked complete.
+
+Do not sacrifice usability or accessibility merely to reduce implementation time.
+
 ## Financial, tenancy, and security invariants
 
 - Currency PHP (pesos), no FX conversion. Decimal strings at boundaries. UTC timestamps; `Asia/Manila` presentation.
