@@ -115,14 +115,14 @@ new #[Title('Teams')] class extends Component {
                             </flux:modal.trigger>
                         @endif
 
-                        <flux:tooltip :content="$team->role === 'member' ? __('View team') : __('Edit team')">
+                        <flux:tooltip :content="$team->role === 'bookkeeper' ? __('View team') : __('Edit team')">
                             <flux:button
                                 variant="ghost"
                                 size="sm"
-                                :icon="$team->role === 'member' ? 'eye' : 'pencil'"
+                                :icon="$team->role === 'bookkeeper' ? 'eye' : 'pencil'"
                                 :href="route('teams.edit', $team->slug)"
                                 wire:navigate
-                                :data-test="$team->role === 'member' ? 'team-view-button' : 'team-edit-button'"
+                                :data-test="$team->role === 'bookkeeper' ? 'team-view-button' : 'team-edit-button'"
                             />
                         </flux:tooltip>
                     </div>

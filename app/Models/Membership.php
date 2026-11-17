@@ -56,6 +56,30 @@ class Membership extends Pivot
     }
 
     /**
+     * Determine whether this membership belongs to the Business Owner.
+     */
+    public function isOwner(): bool
+    {
+        return $this->role === TeamRole::Owner;
+    }
+
+    /**
+     * Determine whether this membership belongs to a Manager.
+     */
+    public function isManager(): bool
+    {
+        return $this->role === TeamRole::Manager;
+    }
+
+    /**
+     * Determine whether this membership belongs to a Bookkeeper.
+     */
+    public function isBookkeeper(): bool
+    {
+        return $this->role === TeamRole::Bookkeeper;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

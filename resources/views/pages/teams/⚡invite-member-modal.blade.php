@@ -17,7 +17,7 @@ new class extends Component {
 
     public string $inviteEmail = '';
 
-    public string $inviteRole = 'member';
+    public string $inviteRole = 'bookkeeper';
 
     public function mount(Team $team): void
     {

@@ -17,6 +17,19 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $legal_name
+ * @property string|null $business_type
+ * @property string|null $contact_email
+ * @property string|null $contact_phone
+ * @property string|null $address_line1
+ * @property string|null $address_line2
+ * @property string|null $city
+ * @property string|null $province
+ * @property string|null $postal_code
+ * @property string $country_code
+ * @property string $currency_code
+ * @property string $timezone
+ * @property Carbon|null $onboarding_completed_at
  * @property string $slug
  * @property bool $is_personal
  * @property Carbon|null $created_at
@@ -26,7 +39,24 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Membership> $memberships
  * @property-read Collection<int, User> $members
  */
-#[Fillable(['name', 'slug', 'is_personal'])]
+#[Fillable([
+    'name',
+    'slug',
+    'is_personal',
+    'legal_name',
+    'business_type',
+    'contact_email',
+    'contact_phone',
+    'address_line1',
+    'address_line2',
+    'city',
+    'province',
+    'postal_code',
+    'country_code',
+    'currency_code',
+    'timezone',
+    'onboarding_completed_at',
+])]
 class Team extends Model
 {
     /** @use HasFactory<TeamFactory> */
@@ -55,7 +85,7 @@ class Team extends Model
     /**
      * Get the team owner.
      */
-    public function owner(): ?Model
+    public function owner(): ?User
     {
         return $this->members()
             ->wherePivot('role', TeamRole::Owner->value)
@@ -96,6 +126,14 @@ class Team extends Model
     }
 
     /**
+     * Determine whether the business profile onboarding is complete.
+     */
+    public function isOnboardingComplete(): bool
+    {
+        return $this->onboarding_completed_at !== null;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -104,6 +142,7 @@ class Team extends Model
     {
         return [
             'is_personal' => 'boolean',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 

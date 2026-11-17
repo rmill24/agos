@@ -5,15 +5,26 @@ namespace App\Enums;
 enum TeamRole: string
 {
     case Owner = 'owner';
-    case Admin = 'admin';
-    case Member = 'member';
+    case Manager = 'manager';
+    case Bookkeeper = 'bookkeeper';
+
+    /**
+     * Deprecated starter-kit aliases retained for existing callers.
+     */
+    public const Admin = self::Manager;
+
+    public const Member = self::Bookkeeper;
 
     /**
      * Get the display label for the role.
      */
     public function label(): string
     {
-        return ucfirst($this->value);
+        return match ($this) {
+            self::Owner => 'Business Owner',
+            self::Manager => 'Manager',
+            self::Bookkeeper => 'Bookkeeper',
+        };
     }
 
     /**
@@ -25,12 +36,12 @@ enum TeamRole: string
     {
         return match ($this) {
             self::Owner => TeamPermission::cases(),
-            self::Admin => [
+            self::Manager => [
                 TeamPermission::UpdateTeam,
                 TeamPermission::CreateInvitation,
                 TeamPermission::CancelInvitation,
             ],
-            self::Member => [],
+            self::Bookkeeper => [],
         };
     }
 
@@ -50,8 +61,8 @@ enum TeamRole: string
     {
         return match ($this) {
             self::Owner => 3,
-            self::Admin => 2,
-            self::Member => 1,
+            self::Manager => 2,
+            self::Bookkeeper => 1,
         };
     }
 

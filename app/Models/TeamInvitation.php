@@ -82,6 +82,22 @@ class TeamInvitation extends Model
     }
 
     /**
+     * Determine whether the invitation grants Manager access.
+     */
+    public function isManager(): bool
+    {
+        return $this->role === TeamRole::Manager;
+    }
+
+    /**
+     * Determine whether the invitation grants Bookkeeper access.
+     */
+    public function isBookkeeper(): bool
+    {
+        return $this->role === TeamRole::Bookkeeper;
+    }
+
+    /**
      * Determine if the invitation has expired.
      */
     public function isExpired(): bool
