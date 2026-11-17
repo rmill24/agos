@@ -31,7 +31,7 @@ new #[Title('Teams')] class extends Component {
 
         Flux::toast(variant: 'success', text: __('Team created.'));
 
-        $this->redirectRoute('teams.edit', ['team' => $team->slug], navigate: true);
+        $this->redirectRoute('teams.onboarding', ['current_team' => $team->slug], navigate: true);
     }
 
     public function leaveTeam(int $teamId): void

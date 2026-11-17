@@ -36,6 +36,10 @@ Applicable to any repository-aware coding agent.
 - Hypothetical scenarios **never** modify actual financial records. AI only explains verified, evidence-linked calculations and candidate actions; reject unsupported output and fall back to rules.
 - Loyverse is **read-only**. Verify API fields; validate paid/unpaid, discounts, included taxes, refunds, split payments; quarantine invalid data; prevent duplicates and incomplete-sync publication.
 - Enforce Team membership, role permissions, and Team-scoped Eloquent queries in **every Livewire action, server request, queued job, import, and report**. The current Team selector is context, not authorization. System Admin has no default financial access.
+- **Mandatory financial-module protection:** Every new business-facing financial route must apply `EnsureBusinessOnboarding` (or the approved equivalent middleware) and role-specific authorization. Every Livewire action must independently authorize the requested operation. Every service, queued job, import, and report must verify the authorized Team and record ownership. Middleware alone is not sufficient.
+- Onboarding routes must remain accessible to authorized Team Owners while onboarding is incomplete; do not create redirect loops.
+- Every new financial module must include tests for incomplete onboarding, unauthorized roles, direct Livewire action invocation, and cross-Team access attempts.
+- Apply these protections when each module is implemented. Do not defer security enforcement to a later phase.
 - Use Laravel password hashing, session rotation/invalidation, 30-minute idle timeout, CSRF middleware, authorization policies, authentication throttling, and audit events. Store secrets only in untracked `.env`; do not log tokens or unnecessary financial data.
 
 ## Gotenberg on Render (512 MiB)

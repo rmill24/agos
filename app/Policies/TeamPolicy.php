@@ -29,7 +29,7 @@ class TeamPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return ! $user->isSystemAdministrator();
     }
 
     /**
@@ -96,5 +96,13 @@ class TeamPolicy
     public function delete(User $user, Team $team): bool
     {
         return ! $team->is_personal && $user->hasTeamPermission($team, TeamPermission::DeleteTeam);
+    }
+
+    /**
+     * Determine whether the user can complete business onboarding.
+     */
+    public function completeOnboarding(User $user, Team $team): bool
+    {
+        return ! $user->isSystemAdministrator() && $user->ownsTeam($team);
     }
 }

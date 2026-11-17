@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\GlobalRole;
 use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\User;
@@ -75,6 +76,16 @@ class UserFactory extends Factory
             'two_factor_secret' => encrypt('secret'),
             'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
             'two_factor_confirmed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that the user is a global System Administrator.
+     */
+    public function systemAdministrator(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'global_role' => GlobalRole::SystemAdministrator,
         ]);
     }
 }

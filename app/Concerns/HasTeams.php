@@ -168,6 +168,14 @@ trait HasTeams
         $role = $this->teamRole($team);
 
         return new TeamPermissions(
+            canViewBusiness: $role?->hasPermission(TeamPermission::ViewBusiness) ?? false,
+            canViewReports: $role?->hasPermission(TeamPermission::ViewReports) ?? false,
+            canManageFinancialRecords: $role?->hasPermission(TeamPermission::ManageFinancialRecords) ?? false,
+            canRunScenarios: $role?->hasPermission(TeamPermission::RunScenarios) ?? false,
+            canViewRecommendations: $role?->hasPermission(TeamPermission::ViewRecommendations) ?? false,
+            canManageBusinessUsers: $role?->hasPermission(TeamPermission::ManageBusinessUsers) ?? false,
+            canManageBusinessSettings: $role?->hasPermission(TeamPermission::ManageBusinessSettings) ?? false,
+            canViewBusinessAuditEvents: $role?->hasPermission(TeamPermission::ViewBusinessAuditEvents) ?? false,
             canUpdateTeam: $role?->hasPermission(TeamPermission::UpdateTeam) ?? false,
             canDeleteTeam: $role?->hasPermission(TeamPermission::DeleteTeam) ?? false,
             canAddMember: $role?->hasPermission(TeamPermission::AddMember) ?? false,

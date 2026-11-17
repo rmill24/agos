@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\HasTeams;
+use App\Enums\GlobalRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,6 +29,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $two_factor_confirmed_at
  * @property string|null $remember_token
  * @property int|null $current_team_id
+ * @property GlobalRole|null $global_role
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Team|null $currentTeam
@@ -53,6 +55,7 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'global_role' => GlobalRole::class,
         ];
     }
 
@@ -66,5 +69,21 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
         return Str::length($initials) > 1
             ? Str::substr($initials, 0, 1).Str::substr($initials, -1)
             : $initials;
+    }
+
+    /**
+     * Determine whether the user has the global System Administrator role.
+     */
+    public function isSystemAdministrator(): bool
+    {
+        return $this->global_role === GlobalRole::SystemAdministrator;
+    }
+
+    /**
+     * Determine whether the user has a global role.
+     */
+    public function hasGlobalRole(GlobalRole $role): bool
+    {
+        return $this->global_role === $role;
     }
 }
