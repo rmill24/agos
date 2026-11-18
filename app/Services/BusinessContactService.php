@@ -15,6 +15,7 @@ class BusinessContactService
 {
     public function __construct(private AuditEventService $auditEvents) {}
 
+    /** @return HasMany<Customer, Team>|HasMany<Supplier, Team> */
     public function records(User $actor, Team $team, bool $suppliers): HasMany
     {
         // Reload onboarding state for callers holding an older Team instance.
@@ -24,6 +25,7 @@ class BusinessContactService
         return $suppliers ? $team->suppliers() : $team->customers();
     }
 
+    /** @param array<string, mixed> $input */
     public function save(User $actor, Team $team, bool $suppliers, ?int $id, array $input): void
     {
         $records = $this->records($actor, $team, $suppliers);

@@ -8,11 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int $team_id
+ * @property string $name
+ */
 #[Fillable(['name', 'email', 'phone'])]
 class Supplier extends Model
 {
     use BelongsToTeam, SoftDeletes;
 
+    /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);

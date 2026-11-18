@@ -73,7 +73,7 @@ class CategoryService
     }
 
     /**
-     * @param  array{name: string, type: string}  $attributes
+     * @param  array{name?: string, type?: string}  $attributes
      */
     protected function validateAttributes(array $attributes): void
     {

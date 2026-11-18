@@ -105,7 +105,8 @@ class TransactionService
      */
     protected function prepareAttributes(Team $team, array $attributes): array
     {
-        if (isset($attributes['category_id']) && $attributes['category_id'] !== null) {
+        if (isset($attributes['category_id'])) {
+            abort_unless(is_int($attributes['category_id']) || is_string($attributes['category_id']), 403);
             $category = Category::query()->find($attributes['category_id']);
             abort_unless($category !== null && $category->belongsToTeam($team), 403);
 
@@ -160,7 +161,7 @@ class TransactionService
             'category_id' => $transaction->category_id,
             'direction' => $transaction->direction,
             'amount' => (string) $transaction->amount,
-            'transaction_date' => $transaction->transaction_date?->toDateString(),
+            'transaction_date' => $transaction->transaction_date->toDateString(),
             'description' => $transaction->description,
             'source_type' => $transaction->source_type,
             'source_reference' => $transaction->source_reference,

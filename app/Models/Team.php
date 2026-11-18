@@ -148,11 +148,13 @@ class Team extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    /** @return HasMany<Customer, $this> */
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
     }
 
+    /** @return HasMany<Supplier, $this> */
     public function suppliers(): HasMany
     {
         return $this->hasMany(Supplier::class);

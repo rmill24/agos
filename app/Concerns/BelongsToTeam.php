@@ -12,6 +12,9 @@ trait BelongsToTeam
      *
      * The caller must authorize the Team separately; this scope never treats
      * the current Team selector as proof of access.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
     public function scopeForTeam(Builder $query, Team|int $team): Builder
     {

@@ -4,7 +4,7 @@ AGOS is a Laravel 13 + Livewire 4 + PostgreSQL cash-flow application. The AGOS a
 
 ## Requirements
 
-- PHP 8.3+ with `pdo_pgsql`, `mbstring`, `openssl`, and Laravel-required extensions
+- PHP 8.4.1+ for the locked dependencies, with `pdo_pgsql`, `mbstring`, `openssl`, and Laravel-required extensions
 - Composer
 - Node.js and npm
 - PostgreSQL (local server; use a supported PostgreSQL release)
