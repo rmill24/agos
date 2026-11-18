@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureBusinessOnboarding;
 use App\Http\Middleware\EnsureTeamMembership;
+use App\Models\Team;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -35,8 +36,11 @@ Route::prefix('{current_team}')
         Route::livewire('transactions', 'pages::transactions.index')
             ->middleware(EnsureBusinessOnboarding::class)
             ->name('transactions.index');
-        foreach (['invoices', 'bills', 'imports'] as $page) {
-            Route::livewire($page, $page === 'imports' ? 'pages::imports.index' : 'pages::obligations.index')
+        Route::get('imports', fn (Team $current_team) => to_route('transactions.index', $current_team))
+            ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
+            ->name('imports.index');
+        foreach (['invoices', 'bills'] as $page) {
+            Route::livewire($page, 'pages::obligations.index')
                 ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
                 ->name($page.'.index');
         }

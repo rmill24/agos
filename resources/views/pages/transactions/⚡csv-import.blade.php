@@ -22,6 +22,9 @@ new class extends Component
     public $file;
 
     #[Locked]
+    public int $uploadSession = 0;
+
+    #[Locked]
     public ?int $batchId = null;
 
     #[Locked]
@@ -77,13 +80,25 @@ new class extends Component
         $this->permit();
         $this->reset('file');
         $this->resetValidation();
+        $this->uploadSession++;
         Flux::modal('import-upload')->show();
+    }
+
+    public function updatedFile(): void
+    {
+        $this->permit();
+        $this->validateOnly('file', $this->fileRules());
+    }
+
+    private function fileRules(): array
+    {
+        return ['file' => 'required|file|extensions:csv|max:2048'];
     }
 
     public function stageFile(CsvImportService $service): void
     {
         $this->permit();
-        $this->validate(['file' => 'required|file|max:2048']);
+        $this->validate($this->fileRules());
         $batch = $service->upload(auth()->user(), $this->team, $this->file->get());
         Flux::modal('import-upload')->close();
         $this->open($batch->id);
@@ -101,6 +116,7 @@ new class extends Component
         $this->showReview($batch);
         $this->resetValidation();
         $this->notice = '';
+        Flux::modal('import-history')->close();
         Flux::modal('batch-detail')->show();
     }
 
@@ -150,6 +166,7 @@ new class extends Component
             $this->notice = 'Records changed since preview. Review the updated rows and confirm again.';
         } else {
             $this->notice = 'Reviewed rows imported.';
+            $this->dispatch('transactions-imported');
         }
         unset($this->batch);
     }
@@ -170,55 +187,91 @@ new class extends Component
         }, 'import-'.$batch->id.'-review.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }; ?>
-<section class="agos-page">
-    <header class="agos-page-header">
-        <div>
-            <flux:heading level="1" size="xl">CSV imports</flux:heading>
-            <flux:subheading>Review spreadsheet transactions before adding them to the ledger.</flux:subheading>
-        </div>
-        <flux:button variant="primary" wire:click="startUpload">New import</flux:button>
-    </header>
+<div class="flex flex-wrap gap-2">
+    <flux:button wire:click="startUpload">Import CSV</flux:button>
+    <flux:modal.trigger name="import-history">
+        <flux:button>Import history</flux:button>
+    </flux:modal.trigger>
 
-    <flux:modal name="import-upload" class="w-full sm:max-w-md">
-        <form wire:submit="stageFile" class="space-y-4">
-            <flux:heading level="2">New CSV import</flux:heading>
-            <flux:input type="file" wire:model="file" accept=".csv,text/csv" label="UTF-8 CSV file (up to 2 MiB)" />
-            <div class="flex flex-wrap gap-2">
-                <flux:modal.close><flux:button type="button">Cancel</flux:button></flux:modal.close>
-                <flux:button variant="primary" type="submit" :disabled="!$file">Upload CSV</flux:button>
+    <flux:modal name="import-upload" class="w-full sm:max-w-lg">
+        <form wire:submit="stageFile" wire:key="upload-session-{{ $uploadSession }}" class="space-y-6"
+            x-data="{ dragging: false, uploading: false, failed: false, progress: 0 }"
+            x-on:livewire-upload-start="uploading = true; failed = false; progress = 0"
+            x-on:livewire-upload-progress="progress = $event.detail.progress"
+            x-on:livewire-upload-finish="uploading = false"
+            x-on:livewire-upload-error="uploading = false; failed = true"
+            x-on:livewire-upload-cancel="uploading = false">
+            <div>
+                <flux:heading level="2" size="lg">Import transactions</flux:heading>
+                <flux:subheading>Choose a CSV, then map its columns and review the rows.</flux:subheading>
             </div>
-            <p wire:loading role="status" class="text-sm">Preparing file…</p>
+
+            <div>
+                <label class="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 text-center focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600 sm:p-8"
+                    x-bind:class="dragging ? 'border-brand-600 bg-brand-50 dark:bg-zinc-800' : 'border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900'">
+                    <flux:icon.arrow-up-tray class="size-7 text-brand-600" />
+                    <span class="max-w-full break-all font-medium">{{ $file ? $file->getClientOriginalName() : __('Drop your transaction CSV here') }}</span>
+                    <span class="font-medium underline underline-offset-4">{{ $file ? __('Browse to replace file') : __('Browse files') }}</span>
+                    <span id="csv-requirements" class="text-sm text-zinc-600 dark:text-zinc-400">UTF-8 CSV with a header row · Up to 2 MiB</span>
+                    <input type="file" wire:model="file" accept=".csv,text/csv" aria-label="Choose transaction CSV"
+                        aria-describedby="csv-requirements" class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        x-on:dragenter="dragging = true" x-on:dragleave="dragging = false" x-on:drop="dragging = false" />
+                </label>
+                <div role="status" aria-live="polite" aria-atomic="true">
+                    @if ($file && ! $errors->has('file'))
+                        <div x-show="!uploading && !failed" class="mt-3 flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100">
+                            <span aria-hidden="true" class="grid size-8 shrink-0 place-items-center rounded-full bg-emerald-700 text-white motion-safe:transition-transform motion-safe:duration-200 motion-safe:starting:scale-50">
+                                <flux:icon.check class="size-5" />
+                            </span>
+                            <div class="min-w-0 text-sm">
+                                <p class="font-semibold">File uploaded</p>
+                                <p class="break-all">{{ $file->getClientOriginalName() }} is ready for column mapping.</p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+                <flux:error name="file" />
+                <p x-cloak x-show="uploading" role="status" class="mt-2 text-sm">Uploading… <span x-text="progress + '%'"></span></p>
+                <p x-cloak x-show="failed" role="alert" class="mt-2 text-sm">Upload failed. Choose the file again to retry.</p>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2">
+                <flux:modal.close><flux:button type="button">Cancel</flux:button></flux:modal.close>
+                <flux:button variant="primary" type="submit" :disabled="!$file" x-bind:disabled="uploading || failed || !$wire.file">Continue to mapping</flux:button>
+            </div>
         </form>
     </flux:modal>
 
-    <div class="mb-5 grid items-end gap-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700 sm:grid-cols-2">
-        <flux:select wire:model.live="status" label="Import status">
-            <option value="">All batches</option><option value="draft">Draft</option><option value="imported">Imported</option>
-        </flux:select>
-    </div>
-    <x-directory-table :records="$this->past" caption="Your import batches">
-        <x-slot:head>
-            <th scope="col" class="px-5 py-3">Batch</th>
-            <th scope="col" class="hidden px-3 py-3 sm:table-cell">Uploaded</th>
-            <th scope="col" class="hidden px-3 py-3 md:table-cell">Rows</th>
-            <th scope="col" class="hidden px-3 py-3 sm:table-cell">Status</th>
-            <th scope="col" class="w-24 px-3 py-3 text-right font-medium">Actions</th>
-        </x-slot:head>
-        @forelse ($this->past as $previous)
-            <tr wire:key="import-{{ $previous->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
-                <th scope="row" class="px-5 py-4">
-                    <button type="button" wire:click="open({{ $previous->id }})" class="text-left font-semibold">Batch {{ $previous->id }}</button>
-                    <span class="block font-normal text-slate-600 sm:hidden">{{ $previous->committed_at ? 'Imported' : 'Draft' }} · {{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</span>
-                </th>
-                <td class="hidden px-3 py-4 sm:table-cell">{{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</td>
-                <td class="hidden px-3 py-4 md:table-cell">{{ $previous->rows_count }}</td>
-                <td class="hidden px-3 py-4 sm:table-cell">{{ $previous->committed_at ? 'Imported' : 'Draft' }}</td>
-                <td class="px-3 py-4 text-right"><flux:button size="sm" variant="outline" wire:click="open({{ $previous->id }})" :aria-label="'View details for batch '.$previous->id">Details</flux:button></td>
-            </tr>
-        @empty
-            <tr><td colspan="5" class="p-8 text-center text-slate-600">{{ $status ? 'No matching import batches.' : 'No CSV imports yet.' }}</td></tr>
-        @endforelse
-    </x-directory-table>
+    <flux:modal name="import-history" class="w-full sm:max-w-3xl">
+        <flux:heading level="2" size="lg" class="mb-4">Import history</flux:heading>
+        <div class="mb-5 grid items-end gap-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700 sm:grid-cols-2">
+            <flux:select wire:model.live="status" label="Import status">
+                <option value="">All batches</option><option value="draft">Draft</option><option value="imported">Imported</option>
+            </flux:select>
+        </div>
+        <x-directory-table :records="$this->past" caption="Your import batches">
+            <x-slot:head>
+                <th scope="col" class="px-5 py-3">Batch</th>
+                <th scope="col" class="hidden px-3 py-3 sm:table-cell">Uploaded</th>
+                <th scope="col" class="hidden px-3 py-3 md:table-cell">Rows</th>
+                <th scope="col" class="hidden px-3 py-3 sm:table-cell">Status</th>
+                <th scope="col" class="w-24 px-3 py-3 text-right font-medium">Actions</th>
+            </x-slot:head>
+            @forelse ($this->past as $previous)
+                <tr wire:key="import-{{ $previous->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                    <th scope="row" class="px-5 py-4">
+                        <button type="button" wire:click="open({{ $previous->id }})" class="text-left font-semibold">Batch {{ $previous->id }}</button>
+                        <span class="block font-normal text-slate-600 sm:hidden">{{ $previous->committed_at ? 'Imported' : 'Draft' }} · {{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</span>
+                    </th>
+                    <td class="hidden px-3 py-4 sm:table-cell">{{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</td>
+                    <td class="hidden px-3 py-4 md:table-cell">{{ $previous->rows_count }}</td>
+                    <td class="hidden px-3 py-4 sm:table-cell">{{ $previous->committed_at ? 'Imported' : 'Draft' }}</td>
+                    <td class="px-3 py-4 text-right"><flux:button size="sm" variant="outline" wire:click="open({{ $previous->id }})" :aria-label="'View details for batch '.$previous->id">Details</flux:button></td>
+                </tr>
+            @empty
+                <tr><td colspan="5" class="p-8 text-center text-slate-600">{{ $status ? 'No matching import batches.' : 'No CSV imports yet.' }}</td></tr>
+            @endforelse
+        </x-directory-table>
+    </flux:modal>
 
     <flux:modal name="batch-detail" variant="flyout" class="w-full sm:max-w-2xl">
         @if ($batch = $this->batch)
@@ -269,4 +322,4 @@ new class extends Component
             </div>
         @endif
     </flux:modal>
-</section>
+</div>

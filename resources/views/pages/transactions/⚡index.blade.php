@@ -12,9 +12,12 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Transactions')] class extends Component
 {
+    use WithPagination;
+
     public Team $team;
 
     public string $search = '';
@@ -124,6 +127,7 @@ new #[Title('Transactions')] class extends Component
         $transaction = Transaction::query()->findOrFail($transactionId);
         Gate::authorize('delete', $transaction);
         $transactions->archive(Auth::user(), $this->team, $transaction);
+        $this->resetPage('transactionsPage');
 
         if ($this->selectedId === $transactionId) {
             $this->selectedId = null;
@@ -135,9 +139,17 @@ new #[Title('Transactions')] class extends Component
         Flux::toast(variant: 'success', text: __('Transaction archived.'));
     }
 
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'directionFilter', 'categoryFilter', 'dateFrom', 'dateTo'], true)) {
+            $this->resetPage('transactionsPage');
+        }
+    }
+
     public function clearFilters(): void
     {
         $this->authorizeTeamView();
+        $this->resetPage('transactionsPage');
         $this->reset('search', 'dateFrom', 'dateTo');
         $this->directionFilter = 'all';
         $this->categoryFilter = 'all';
@@ -148,6 +160,38 @@ new #[Title('Transactions')] class extends Component
     {
         $this->authorizeTeamView();
 
+        return $this->filteredTransactions()->paginate(10, pageName: 'transactionsPage');
+    }
+
+    public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeTeamView();
+        Gate::authorize('manageFinancialRecords', $this->team);
+        $transactions = $this->filteredTransactions();
+
+        return response()->streamDownload(function () use ($transactions) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['date', 'type', 'amount', 'currency', 'description', 'source_reference', 'category', 'payment_status', 'external_id'], ',', '"', '');
+            foreach ($transactions->lazy() as $transaction) {
+                $cells = [
+                    $transaction->transaction_date->toDateString(), $transaction->direction,
+                    $transaction->amount, $transaction->currency_code, $transaction->description,
+                    $transaction->source_reference, $transaction->category?->name, 'paid', $transaction->external_id,
+                ];
+                foreach ($cells as &$cell) {
+                    if (preg_match('/^(?:[\t\r\n]|\s*[=+@-])/u', (string) $cell)) {
+                        $cell = "'".$cell;
+                    }
+                }
+                unset($cell);
+                fputcsv($out, $cells, ',', '"', '');
+            }
+            fclose($out);
+        }, 'transactions.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function filteredTransactions(): \Illuminate\Database\Eloquent\Builder
+    {
         return Transaction::forTeam($this->team)
             ->with('category')
             ->when($this->search !== '', fn ($query) => $query->where(function ($query) {
@@ -161,8 +205,7 @@ new #[Title('Transactions')] class extends Component
             ->when($this->dateFrom !== '', fn ($query) => $query->whereDate('transaction_date', '>=', $this->dateFrom))
             ->when($this->dateTo !== '', fn ($query) => $query->whereDate('transaction_date', '<=', $this->dateTo))
             ->latest('transaction_date')
-            ->latest('id')
-            ->get();
+            ->latest('id');
     }
 
     #[Computed]
@@ -221,17 +264,23 @@ new #[Title('Transactions')] class extends Component
     }
 }; ?>
 
-<section class="w-full">
+<section class="w-full lg:mx-auto lg:max-w-7xl lg:p-8">
     <div class="space-y-6">
         @if(\App\Models\ImportBatch::where('team_id',$team->id)->whereNotNull('committed_at')->where('incomplete_history',true)->exists())
             <p class="rounded-lg border p-3"><strong>Incomplete history</strong> · Imported movements cover a limited period. Opening cash is unknown.</p>
         @endif
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <flux:heading size="xl">{{ __('Transactions') }}</flux:heading>
                 <flux:subheading>{{ __('Record and review this business\'s income and expenses.') }}</flux:subheading>
             </div>
-            <flux:button variant="primary" wire:click="startCreate">{{ __('New transaction') }}</flux:button>
+            <div class="flex flex-wrap items-center gap-2">
+                @can('manageFinancialRecords', $team)
+                    <livewire:pages::transactions.csv-import :current_team="$team" @transactions-imported="$refresh" />
+                    <flux:button wire:click="exportCsv">Export CSV</flux:button>
+                @endcan
+                <flux:button variant="primary" wire:click="startCreate">{{ __('New transaction') }}</flux:button>
+            </div>
         </div>
 
         <div class="grid gap-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700 md:grid-cols-5">
@@ -310,6 +359,7 @@ new #[Title('Transactions')] class extends Component
                     @endforelse
                 </tbody>
             </table>
+            <x-table-pagination :records="$this->transactions" />
         </div>
 
         @if ($this->selectedTransaction)

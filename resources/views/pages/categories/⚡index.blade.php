@@ -10,9 +10,12 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Categories')] class extends Component
 {
+    use WithPagination;
+
     public Team $team;
 
     public string $name = '';
@@ -82,6 +85,7 @@ new #[Title('Categories')] class extends Component
         $category = Category::query()->findOrFail($categoryId);
         Gate::authorize('delete', $category);
         $categories->archive(Auth::user(), $this->team, $category);
+        $this->resetPage();
 
         if ($this->editingId === $categoryId) {
             $this->resetForm();
@@ -97,7 +101,8 @@ new #[Title('Categories')] class extends Component
 
         return Category::forTeam($this->team)
             ->orderBy('name')
-            ->get();
+            ->orderBy('id')
+            ->paginate(10);
     }
 
     protected function authorizeTeamView(): void
@@ -114,7 +119,7 @@ new #[Title('Categories')] class extends Component
     }
 }; ?>
 
-<section class="w-full">
+<section class="w-full lg:mx-auto lg:max-w-7xl lg:p-8">
     <div class="space-y-6">
         <div class="flex items-center justify-between gap-4">
             <div>
@@ -163,6 +168,7 @@ new #[Title('Categories')] class extends Component
                     @endforelse
                 </tbody>
             </table>
+            <x-table-pagination :records="$this->categories" />
         </div>
     </div>
 </section>

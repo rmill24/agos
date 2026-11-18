@@ -40,16 +40,16 @@ it('keeps drafts private and denies stale import commits and downloads', functio
     $service->review($user, $team, $batch->id, array_flip($batch->headers), 'Y-m-d', true);
     $this->actingAs($otherUser);
     foreach ([$team, $otherTeam] as $context) {
-        Livewire::test('pages::imports.index', ['current_team' => $context])->call('open', $batch->id)->assertNotFound();
+        Livewire::test('pages::transactions.csv-import', ['current_team' => $context])->call('open', $batch->id)->assertNotFound();
         expect(fn () => $service->commit($otherUser, $context, $batch->id, 1, [2]))->toThrow(ModelNotFoundException::class);
     }
     $this->actingAs($user);
-    $component = Livewire::test('pages::imports.index', ['current_team' => $team])->call('open', $batch->id);
+    $component = Livewire::test('pages::transactions.csv-import', ['current_team' => $team])->call('open', $batch->id);
     $component->set('format', 'd-m-Y')->call('commitReviewed')->assertHasErrors('review');
     $team->members()->detach($user);
     $component->call('commitReviewed')->assertForbidden();
     $team->members()->attach($user, ['role' => TeamRole::Manager]);
-    $component = Livewire::test('pages::imports.index', ['current_team' => $team])->call('open', $batch->id);
+    $component = Livewire::test('pages::transactions.csv-import', ['current_team' => $team])->call('open', $batch->id);
     $team->update(['onboarding_completed_at' => null]);
     $this->get(route('imports.index', $team))->assertRedirect(route('teams.onboarding', $team));
     $component->call('download')->assertForbidden();

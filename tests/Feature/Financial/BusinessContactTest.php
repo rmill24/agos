@@ -40,8 +40,8 @@ class BusinessContactTest extends TestCase
         $customer = $team->customers()->sole();
         $this->assertTrue($customer->team->is($team));
 
-        $component->set('search', 'unmatched')->assertSee('No matching contacts.')
-            ->set('search', 'local')->assertSee('Local customer')->set('search', '')
+        $component->set('search', 'unmatched')->assertSee('No matching contacts.')->assertDontSee('Directory pagination')
+            ->set('search', 'local')->assertSee('Local customer')->assertSee('Directory pagination')->set('search', '')
             ->call('openProfile', $customer->id)->assertSee('Customer profile')
             ->call('edit', $customer->id)->set('name', 'Updated customer')
             ->call('save')->assertSee('Archive Updated customer?')->assertSee('Archive customer')
