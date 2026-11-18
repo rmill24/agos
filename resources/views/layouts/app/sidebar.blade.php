@@ -27,6 +27,9 @@
                         @endforeach
                     @endif
                 </flux:sidebar.group>
+                @can('syncLoyverse', auth()->user()->currentTeam)
+                    <flux:sidebar.item icon="arrow-path" :href="route('loyverse.index', auth()->user()->currentTeam)" :current="request()->routeIs('loyverse.index')" wire:navigate>{{ __('Loyverse sync') }}</flux:sidebar.item>
+                @endcan
                 <div class="agos-nav-label">{{ __('Settings') }}</div>
                 <flux:sidebar.item icon="cog-6-tooth" :href="route('business.edit')" :current="request()->routeIs('business.*')" wire:navigate>{{ __('Business Profile') }}</flux:sidebar.item>
                 <flux:sidebar.item icon="users" :href="route('teams.index')" :current="request()->routeIs('teams.*')" wire:navigate>{{ __('Team Management') }}</flux:sidebar.item>

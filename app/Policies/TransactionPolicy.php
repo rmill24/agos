@@ -26,12 +26,12 @@ class TransactionPolicy
 
     public function update(User $user, Transaction $transaction): bool
     {
-        return $transaction->source_type !== 'payment' && $this->canManageFinancialRecords($user, $transaction->team);
+        return ! in_array($transaction->source_type, ['payment', 'loyverse'], true) && $this->canManageFinancialRecords($user, $transaction->team);
     }
 
     public function delete(User $user, Transaction $transaction): bool
     {
-        return $transaction->source_type !== 'payment' && $this->canManageFinancialRecords($user, $transaction->team);
+        return ! in_array($transaction->source_type, ['payment', 'loyverse'], true) && $this->canManageFinancialRecords($user, $transaction->team);
     }
 
     protected function canManageFinancialRecords(User $user, Team $team): bool

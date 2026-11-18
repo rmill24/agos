@@ -126,4 +126,9 @@ class TeamPolicy
     {
         return ! $user->isSystemAdministrator() && $user->ownsTeam($team);
     }
+
+    public function syncLoyverse(User $user, Team $team): bool
+    {
+        return ! $team->is_personal && $team->isOnboardingComplete() && $this->updateBusinessProfile($user, $team);
+    }
 }

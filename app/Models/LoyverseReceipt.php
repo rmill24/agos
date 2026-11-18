@@ -3,10 +3,15 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToTeam;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property array<string,mixed> $receipt
+ * @property CarbonImmutable $source_updated_at
+ */
 #[Fillable(['receipt_number', 'merchant_id', 'store_id', 'currency_code', 'source_updated_at', 'synced_at', 'receipt'])]
 class LoyverseReceipt extends Model
 {

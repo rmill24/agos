@@ -8,7 +8,11 @@
 
 The isolated PostgreSQL 17 suite passed all 151 tests (577 assertions), including 10 adapter tests. The receipt migration applied, rolled back and reapplied on the isolated database, and is applied on the configured local database. PHPStan, Pint and the asset build passed. Live credentials and reconciliation remain unverified.
 
-**Next task is P3-T03.** Add authorized manual synchronization, resumable checkpoints, quarantine, and stale or incomplete status in the UI.
+**P3-T03 complete with simulated Loyverse responses.** Onboarded owners can start or resume a database-queued sync from **Loyverse sync**. Workers verify the Team and owner, save each completed page and publish reconciled movements together after the final page. The dashboard retains the last successful sync time during an outage. Owners can inspect quarantined receipt identifiers and reasons. Each store needs an explicitly verified collection-method mapping before its payments can contribute cash.
+
+The full isolated PostgreSQL 17 suite passed **157 tests and 625 assertions**. SQLite passed 155 tests with two PostgreSQL-only skips. PHPStan, Pint and the production build passed. The new migration applied, rolled back and reapplied on isolated PostgreSQL and is applied on the configured local database. Chrome review at 1440, 768 and 390 CSS pixels verified viewport fit, visible keyboard focus, quarantine review and the retry action. During verification, the Team test factory was changed to use the model’s existing slug generator after a random slug collision.
+
+**Next task is P3-T04.** Extend fixture coverage for discounts, included taxes, split tenders, refunds, paid and unpaid receipts, revisions, duplicates and provider failures. Live store permissions, payment mappings and financial reconciliation remain unverified.
 
 ## P2 acceptance — 18 November 2026
 

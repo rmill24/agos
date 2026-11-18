@@ -36,6 +36,9 @@ Route::prefix('{current_team}')
         Route::livewire('transactions', 'pages::transactions.index')
             ->middleware(EnsureBusinessOnboarding::class)
             ->name('transactions.index');
+        Route::livewire('loyverse', 'pages::loyverse.index')
+            ->middleware([EnsureBusinessOnboarding::class, 'can:syncLoyverse,current_team'])
+            ->name('loyverse.index');
         Route::get('imports', fn (Team $current_team) => to_route('transactions.index', $current_team))
             ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
             ->name('imports.index');

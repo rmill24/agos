@@ -13,6 +13,23 @@
                     class="font-semibold">{{ auth()->user()->currentTeam?->name }}</span><span
                     class="mx-1 text-brand-300">·</span>{{ __('Business workspace') }}</div>
         </div>
+        @can('manageFinancialRecords', auth()->user()->currentTeam)
+            @php
+                $runs = auth()->user()->currentTeam->loyverseSyncs();
+                $latestSync = (clone $runs)->latest('id')->first();
+                $lastSuccess = (clone $runs)->where('status', 'complete')->latest('id')->first();
+            @endphp
+            @if($latestSync)
+                <section class="agos-card space-y-1 p-5" aria-label="Loyverse status">
+                    <flux:heading>Loyverse receipts</flux:heading>
+                    <flux:text>{{ $latestSync->status === 'complete' ? 'Last sync complete.' : 'Latest sync incomplete. Previously published records may be stale.' }}
+                        Last successful sync: {{ $lastSuccess ? $lastSuccess->completed_at->timezone('Asia/Manila')->format('M j, Y g:i A').' PHT' : 'Never' }}.</flux:text>
+                    @can('syncLoyverse', auth()->user()->currentTeam)
+                        <a class="agos-link" href="{{ route('loyverse.index', auth()->user()->currentTeam) }}" wire:navigate>View sync history</a>
+                    @endcan
+                </section>
+            @endif
+        @endcan
         <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <article class="agos-card p-6">
                 <div class="flex items-center justify-between"><span class="rounded-xl bg-brand-50 p-3 text-brand-600">

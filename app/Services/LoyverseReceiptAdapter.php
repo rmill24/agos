@@ -2,12 +2,16 @@
 
 namespace App\Services;
 
+use App\Data\LoyverseReceiptIssue;
+use App\Models\LoyverseReceipt;
 use App\Models\Team;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Carbon\Exceptions\InvalidFormatException;
+use Closure;
 use DateTimeInterface;
+use DomainException;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
@@ -21,7 +25,11 @@ use stdClass;
  */
 class LoyverseReceiptAdapter
 {
-    public function stagePage(User $actor, Team $team, DateTimeInterface $from, DateTimeInterface $until, ?string $cursor = null): ?string
+    /**
+     * @param  (Closure(LoyverseReceipt): void)|null  $accepted
+     * @param  (Closure(LoyverseReceiptIssue): void)|null  $rejected
+     */
+    public function stagePage(User $actor, Team $team, DateTimeInterface $from, DateTimeInterface $until, ?string $cursor = null, ?Closure $accepted = null, ?Closure $rejected = null): ?string
     {
         $connection = $this->connection($actor, $team);
         if ($from >= $until) {
@@ -40,9 +48,9 @@ class LoyverseReceiptAdapter
             throw new RuntimeException('Invalid Loyverse receipts page.');
         }
         if (property_exists($page, 'cursor') && (! is_string($page->cursor) || $page->cursor === '' || $page->cursor === $cursor)) {
-            throw new RuntimeException('Invalid Loyverse continuation cursor.');
+            throw new DomainException('Invalid Loyverse continuation cursor.');
         }
-        $this->stage($actor, $team, $connection, $currency, $rows);
+        $this->stage($actor, $team, $connection, $currency, $rows, $accepted, $rejected);
 
         return $page->cursor ?? null;
     }
@@ -78,19 +86,19 @@ class LoyverseReceiptAdapter
     private function authorize(User $actor, Team $team): void
     {
         Gate::forUser($actor)->authorize('updateBusinessProfile', $team);
-        abort_unless($team->isOnboardingComplete() && ! $team->trashed(), 403);
+        abort_unless(! $team->is_personal && $team->isOnboardingComplete() && ! $team->trashed(), 403);
     }
 
     /** @param Connection $connection */
-    private function currency(array $connection): string
+    private function currency(array $connection): ?string
     {
         $merchant = $this->get($connection, '/merchant/');
         $currency = $merchant->currency->code ?? null;
-        if (($merchant->id ?? null) !== $connection['merchant'] || ! is_string($currency) || ! preg_match('/^[A-Z]{3}$/D', $currency)) {
+        if (($merchant->id ?? null) !== $connection['merchant']) {
             throw new RuntimeException('Cannot verify the mapped Loyverse merchant or its currency.');
         }
 
-        return $currency;
+        return is_string($currency) && preg_match('/^[A-Z]{3}$/D', $currency) ? $currency : null;
     }
 
     /**
@@ -104,6 +112,9 @@ class LoyverseReceiptAdapter
                 ->timeout(8)->get('https://api.loyverse.com/v1.0'.$path, $query);
         } catch (ConnectionException) {
             throw new RuntimeException('Loyverse could not be reached.');
+        }
+        if ($response->status() === 400 && $response->json('errors.0.code') === 'INVALID_CURSOR') {
+            throw new DomainException('Invalid Loyverse continuation cursor.');
         }
         if (! $response->successful()) {
             throw new RuntimeException('Loyverse request failed (HTTP '.$response->status().').');
@@ -131,45 +142,96 @@ class LoyverseReceiptAdapter
     /**
      * @param  Connection  $connection
      * @param  list<mixed>  $rows
+     * @param  (Closure(LoyverseReceipt): void)|null  $accepted
+     * @param  (Closure(LoyverseReceiptIssue): void)|null  $rejected
      */
-    private function stage(User $actor, Team $team, array $connection, string $currency, array $rows): void
+    private function stage(User $actor, Team $team, array $connection, ?string $currency, array $rows, ?Closure $accepted = null, ?Closure $rejected = null): void
     {
-        DB::transaction(function () use ($actor, $team, $connection, $currency, $rows) {
+        DB::transaction(function () use ($actor, $team, $connection, $currency, $rows, $accepted, $rejected) {
             $team = Team::query()->lockForUpdate()->findOrFail($team->id);
             $this->authorize($actor, $team);
             foreach ($rows as $row) {
-                if (! $row instanceof stdClass) {
-                    throw new RuntimeException('Invalid Loyverse receipt.');
-                }
-                $row = get_object_vars($row);
-                if (($row['store_id'] ?? null) !== $connection['store']
-                    || ! is_string($row['receipt_number'] ?? null) || trim($row['receipt_number']) === '') {
+                $row = $row instanceof stdClass ? get_object_vars($row) : [];
+                if (isset($row['store_id']) && $row['store_id'] !== $connection['store']) {
                     throw new RuntimeException('Cannot verify Loyverse receipt identity or store.');
                 }
-                $timestamp = $row['updated_at'] ?? null;
-                if (! is_string($timestamp) || ! preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/D', $timestamp)) {
-                    throw new RuntimeException('Missing or invalid Loyverse receipt revision.');
-                }
-                $updated = CarbonImmutable::parse($timestamp)->utc();
-                if (\DateTimeImmutable::getLastErrors() !== false) {
-                    throw new RuntimeException('Invalid Loyverse receipt revision date.');
-                }
-                $record = $team->loyverseReceipts()->firstOrNew(['receipt_number' => $row['receipt_number']]);
-                if ($record->exists) {
-                    if ($record->merchant_id !== $connection['merchant'] || $record->store_id !== $connection['store']) {
-                        throw new RuntimeException('The receipt belongs to a different source mapping.');
+                $number = $row['receipt_number'] ?? null;
+                $number = is_string($number) && trim($number) !== '' && strlen($number) <= 255 ? $number : null;
+                try {
+                    if ($number === null || ! isset($row['store_id'])) {
+                        throw new DomainException('Cannot verify Loyverse receipt identity or store.');
                     }
-                    if ($record->source_updated_at >= $updated) {
-                        continue;
+                    if ($currency === null) {
+                        throw new DomainException('Merchant currency could not be verified.');
                     }
+                    $record = $this->stageRevision($team, $connection, $currency, $number, $row, $accepted !== null);
+                    if ($accepted !== null) {
+                        $accepted($record);
+                    }
+                } catch (DomainException $error) {
+                    if ($rejected === null) {
+                        throw $error;
+                    }
+                    $rejected(new LoyverseReceiptIssue(isset($row['store_id']) ? $number : null, $error->getMessage()));
                 }
-                $record->fill([
-                    'merchant_id' => $connection['merchant'], 'store_id' => $connection['store'],
-                    'currency_code' => $currency, 'source_updated_at' => $updated, 'synced_at' => now(),
-                    'receipt' => $this->financialFields($row),
-                ])->save();
             }
         });
+    }
+
+    /**
+     * @param  Connection  $connection
+     * @param  array<string,mixed>  $row
+     */
+    private function stageRevision(Team $team, array $connection, string $currency, string $number, array $row, bool $verifyReplay): LoyverseReceipt
+    {
+        $timestamp = $row['updated_at'] ?? null;
+        if (! is_string($timestamp) || ! preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/D', $timestamp)) {
+            throw new DomainException('Missing or invalid Loyverse receipt revision.');
+        }
+        try {
+            $updated = CarbonImmutable::parse($timestamp)->utc();
+        } catch (InvalidFormatException) {
+            throw new DomainException('Invalid Loyverse receipt revision date.');
+        }
+        if (\DateTimeImmutable::getLastErrors() !== false) {
+            throw new DomainException('Invalid Loyverse receipt revision date.');
+        }
+
+        $record = $team->loyverseReceipts()->firstOrNew(['receipt_number' => $number]);
+        if ($record->exists) {
+            if ($record->merchant_id !== $connection['merchant'] || $record->store_id !== $connection['store']) {
+                throw new RuntimeException('The receipt belongs to a different source mapping.');
+            }
+            if ($record->source_updated_at > $updated || (! $verifyReplay && $record->source_updated_at == $updated)) {
+                if ($verifyReplay && $record->currency_code !== $currency) {
+                    throw new DomainException('Currency differs from previously staged evidence.');
+                }
+
+                return $record;
+            }
+        }
+        try {
+            $fields = $this->financialFields($row);
+            if ($record->exists && $record->source_updated_at == $updated) {
+                if ($record->currency_code !== $currency || $record->receipt !== $fields) {
+                    throw new DomainException('Conflicting evidence for the same receipt revision.');
+                }
+
+                return $record;
+            }
+        } catch (DomainException $error) {
+            // Preserve the invalid revision so an older replay cannot restore cash.
+            $fields = [];
+        }
+        $record->fill([
+            'merchant_id' => $connection['merchant'], 'store_id' => $connection['store'],
+            'currency_code' => $currency, 'source_updated_at' => $updated, 'synced_at' => now(), 'receipt' => $fields,
+        ])->save();
+        if (isset($error)) {
+            throw $error;
+        }
+
+        return $record;
     }
 
     /**
@@ -186,12 +248,12 @@ class LoyverseReceiptAdapter
         ] as $key => $fields) {
             if (isset($row[$key])) {
                 if (! is_array($row[$key]) || ! array_is_list($row[$key])) {
-                    throw new RuntimeException('Invalid Loyverse financial breakdown.');
+                    throw new DomainException('Invalid Loyverse financial breakdown.');
                 }
                 $entries = [];
                 foreach ($row[$key] as $entry) {
                     if (! $entry instanceof stdClass) {
-                        throw new RuntimeException('Invalid Loyverse financial entry.');
+                        throw new DomainException('Invalid Loyverse financial entry.');
                     }
                     $entries[] = $this->scalarFields(get_object_vars($entry), $fields);
                 }
@@ -209,11 +271,16 @@ class LoyverseReceiptAdapter
      */
     private function scalarFields(array $row, array $fields): array
     {
-        $selected = Arr::only($row, $fields);
-        foreach ($selected as $value) {
-            if ($value !== null && ! is_string($value)) {
-                throw new RuntimeException('Invalid Loyverse financial field.');
+        $selected = [];
+        foreach ($fields as $field) {
+            if (! array_key_exists($field, $row)) {
+                continue;
             }
+            $value = $row[$field];
+            if ($value !== null && ! is_string($value)) {
+                throw new DomainException('Invalid Loyverse financial field.');
+            }
+            $selected[$field] = $value;
         }
 
         return $selected;

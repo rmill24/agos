@@ -150,7 +150,9 @@ php artisan queue:work database --queue=pdf --tries=1 --timeout=60
 
 ### Loyverse receipt adapter
 
-For an authorized business, list its numeric Team ID in `LOYVERSE_TEAM_IDS` in the local untracked `.env`. Separate multiple IDs with commas. For each ID, set `LOYVERSE_TEAM_<ID>_ACCESS_TOKEN`, `LOYVERSE_TEAM_<ID>_MERCHANT_ID` and `LOYVERSE_TEAM_<ID>_STORE_ID` for the same Loyverse account and store. The adapter checks both provider identities before staging receipts. The example configuration leaves the integration disabled. Manual synchronization and publication are planned for P3-T03.
+For an authorized business, list its numeric Team ID in `LOYVERSE_TEAM_IDS` in the local untracked `.env`. Separate multiple IDs with commas. For each ID, set `LOYVERSE_TEAM_<ID>_ACCESS_TOKEN`, `LOYVERSE_TEAM_<ID>_MERCHANT_ID` and `LOYVERSE_TEAM_<ID>_STORE_ID` for the same account and store. In `LOYVERSE_TEAM_<ID>_COLLECTED_METHOD_IDS`, list the comma-separated payment type IDs verified to represent collected or returned money for that store and import period. An empty list holds receipts requiring payment evidence for review. The example configuration leaves the connection disabled.
+
+An onboarded owner can open **Loyverse sync** in the sidebar and choose **Sync receipts**. Run a database worker for the default queue (`php artisan queue:work database --queue=default`) alongside the application. Each completed page saves a checkpoint. **Resume sync** continues an interrupted window, or replays it if the provider rejected its cursor. After the final page, AGOS publishes verified payments together and lists quarantined receipts with their reasons. The dashboard shows the last successful synchronization time in Manila time.
 
 ### Application conventions
 
