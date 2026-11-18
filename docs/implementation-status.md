@@ -1,5 +1,11 @@
 # AGOS implementation status
 
+## P3 — 19 November 2026
+
+**P3-T01 complete for the published API contract.** The [Loyverse receipt contract](loyverse-api-contract.md) maps read permissions, receipt pagination, merchant currency and payment evidence to AGOS financial rules. It includes synthetic reconciliation cases and identifies the evidence required for live store verification. No live account permissions, currency or receipts have been verified.
+
+**Next task is P3-T02.** Implement the read-only Laravel HTTP adapter, server-side token configuration, Team-scoped source mappings and import upsert keys.
+
 ## P2 acceptance — 18 November 2026
 
 | Task | Status | Verified outcome |
