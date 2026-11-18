@@ -19,6 +19,10 @@
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="arrows-right-left" :href="route('transactions.index', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('transactions.*')" wire:navigate>{{ __('Transactions') }}</flux:sidebar.item>
                     <flux:sidebar.item icon="tag" :href="route('categories.index', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('categories.*')" wire:navigate>{{ __('Categories') }}</flux:sidebar.item>
+                    @if (($activeTeam = auth()->user()->currentTeam) && auth()->user()->can('manageContacts', $activeTeam))
+                        <flux:sidebar.item icon="users" :href="route('customers.index', $activeTeam)" :current="request()->routeIs('customers.*')" wire:navigate>{{ __('Customers') }}</flux:sidebar.item>
+                        <flux:sidebar.item icon="building-office" :href="route('suppliers.index', $activeTeam)" :current="request()->routeIs('suppliers.*')" wire:navigate>{{ __('Suppliers') }}</flux:sidebar.item>
+                    @endif
                 </flux:sidebar.group>
                 <div class="agos-nav-label">{{ __('Settings') }}</div>
                 <flux:sidebar.item icon="cog-6-tooth" :href="route('business.edit')" :current="request()->routeIs('business.*')" wire:navigate>{{ __('Business Profile') }}</flux:sidebar.item>

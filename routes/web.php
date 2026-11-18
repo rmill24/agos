@@ -35,6 +35,12 @@ Route::prefix('{current_team}')
         Route::livewire('transactions', 'pages::transactions.index')
             ->middleware(EnsureBusinessOnboarding::class)
             ->name('transactions.index');
+        Route::livewire('customers', 'pages::contacts.index')
+            ->middleware([EnsureBusinessOnboarding::class, 'can:manageContacts,current_team'])
+            ->name('customers.index');
+        Route::livewire('suppliers', 'pages::contacts.index')
+            ->middleware([EnsureBusinessOnboarding::class, 'can:manageContacts,current_team'])
+            ->name('suppliers.index');
     });
 
 require __DIR__.'/settings.php';

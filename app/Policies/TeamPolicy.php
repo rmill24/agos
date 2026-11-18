@@ -8,6 +8,14 @@ use App\Models\User;
 
 class TeamPolicy
 {
+    public function manageContacts(User $user, Team $team): bool
+    {
+        return ! $team->is_personal
+            && $team->isOnboardingComplete()
+            && $user->belongsToTeam($team)
+            && $user->hasTeamPermission($team, TeamPermission::ManageFinancialRecords);
+    }
+
     /**
      * Determine whether the user can view any models.
      */

@@ -13,7 +13,7 @@
                     class="font-semibold">{{ auth()->user()->currentTeam?->name }}</span><span
                     class="mx-1 text-brand-300">·</span>{{ __('Business workspace') }}</div>
         </div>
-        <div class="grid gap-5 md:grid-cols-3">
+        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <article class="agos-card p-6">
                 <div class="flex items-center justify-between"><span class="rounded-xl bg-brand-50 p-3 text-brand-600">
                         <flux:icon name="arrows-right-left" class="size-5" />
@@ -41,6 +41,24 @@
                     href="{{ route('categories.index', ['current_team' => auth()->user()->currentTeam?->slug]) }}"
                     wire:navigate>{{ __('Manage categories') }} →</a>
             </article>
+            @can('manageContacts', auth()->user()->currentTeam)
+                @foreach ([
+                    ['title' => __('Customers'), 'description' => __('People and businesses that buy from you.'), 'icon' => 'users', 'route' => 'customers.index', 'link' => __('View customers')],
+                    ['title' => __('Suppliers'), 'description' => __('People and businesses you buy supplies from.'), 'icon' => 'building-office', 'route' => 'suppliers.index', 'link' => __('View suppliers')],
+                ] as $directory)
+                    <article class="agos-card p-6">
+                        <span class="inline-flex rounded-xl bg-brand-50 p-3 text-brand-600">
+                            <flux:icon :name="$directory['icon']" class="size-5" />
+                        </span>
+                        <h2 class="mt-5 text-lg font-bold">{{ $directory['title'] }}</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">{{ $directory['description'] }}</p>
+                        <a class="agos-link mt-5 inline-block text-sm"
+                            href="{{ route($directory['route'], auth()->user()->currentTeam) }}" wire:navigate>
+                            {{ $directory['link'] }} <span aria-hidden="true">→</span>
+                        </a>
+                    </article>
+                @endforeach
+            @endcan
             <article class="agos-card p-6">
                 <div class="flex items-center justify-between"><span class="rounded-xl bg-amber-50 p-3 text-amber-600">
                         <flux:icon name="building-office-2" class="size-5" />
