@@ -17,6 +17,7 @@ class ObligationService
 {
     public function __construct(private TransactionService $ledger, private AuditEventService $audit) {}
 
+    /** @param  array<string, mixed>  $input */
     public function create(User $actor, Team $team, string $kind, array $input): Obligation
     {
         Gate::forUser($actor)->authorize('manageFinancialRecords', $team->fresh());
@@ -35,7 +36,7 @@ class ObligationService
             ] : ['description' => 'required|string|max:1000', 'total' => $money];
             $data = Validator::make($input, $rules)->validate();
             $contacts = $invoice ? $team->customers() : $team->suppliers();
-            $contact = $contacts->lockForUpdate()->findOrFail($data['contact_id']);
+            $contact = $contacts->lockForUpdate()->whereKey($data['contact_id'])->firstOrFail();
             $total = BigDecimal::of($invoice ? '0.00' : $data['total']);
             $lines = [];
             foreach ($data['lines'] ?? [] as $line) {

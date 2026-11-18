@@ -12,11 +12,13 @@ class ImportBatch extends Model
 
     protected $casts = ['headers' => 'array', 'mapping' => 'array', 'confirmed_cash' => 'boolean', 'incomplete_history' => 'boolean', 'committed_at' => 'datetime'];
 
+    /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
     }
 
+    /** @return HasMany<ImportRow, $this> */
     public function rows(): HasMany
     {
         return $this->hasMany(ImportRow::class)->orderBy('row_number');

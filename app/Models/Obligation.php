@@ -13,26 +13,31 @@ class Obligation extends Model
 
     protected $casts = ['total' => 'decimal:2'];
 
+    /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
     }
 
+    /** @return BelongsTo<Customer, $this> */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class)->withTrashed();
     }
 
+    /** @return BelongsTo<Supplier, $this> */
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class)->withTrashed();
     }
 
+    /** @return HasMany<InvoiceLine, $this> */
     public function lines(): HasMany
     {
         return $this->hasMany(InvoiceLine::class);
     }
 
+    /** @return HasMany<Payment, $this> */
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);

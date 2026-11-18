@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
@@ -51,6 +52,8 @@ it('requires renewed review for new duplicate candidates and preserves exact ext
     expect($stale->committed_at)->toBeNull()->and($b->rows()->sole()->status)->toBe('probable');
     expect(fn () => $s->commit($user, $team, $b->id, $review->revision, [2]))->toThrow(ValidationException::class);
     $s->commit($user, $team, $b->id, $stale->revision, [2]);
+    expect(fn () => $s->review($user, $team, $b->id, $map, 'd-m-Y', true))
+        ->toThrow(fn (HttpException $error) => expect($error->getStatusCode())->toBe(409));
     $copy = $s->upload($user, $team, $csv);
     $s->review($user, $team, $copy->id, $map, 'd-m-Y', true);
     expect($copy->rows()->sole()->reason)->toContain('Duplicate external ID');

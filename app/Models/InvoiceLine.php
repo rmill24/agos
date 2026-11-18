@@ -13,6 +13,7 @@ class InvoiceLine extends Model
 
     protected $casts = ['unit_price' => 'decimal:2', 'line_total' => 'decimal:2'];
 
+    /** @return BelongsTo<Obligation, $this> */
     public function obligation(): BelongsTo
     {
         return $this->belongsTo(Obligation::class);

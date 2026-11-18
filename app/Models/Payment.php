@@ -11,11 +11,13 @@ class Payment extends Model
 
     protected $guarded = ['id'];
 
+    /** @return BelongsTo<Obligation, $this> */
     public function obligation(): BelongsTo
     {
         return $this->belongsTo(Obligation::class);
     }
 
+    /** @return BelongsTo<Transaction, $this> */
     public function transaction(): BelongsTo
     {
         return $this->belongsTo(Transaction::class);

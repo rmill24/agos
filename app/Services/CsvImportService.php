@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Category;
 use App\Models\ImportBatch;
 use App\Models\Team;
 use App\Models\User;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class CsvImportService
 {
@@ -36,27 +38,37 @@ class CsvImportService
         }
         $csv = str_replace(["\r\n", "\r"], "\n", $csv);
         $stream = fopen('php://temp', 'w+b');
+        if ($stream === false) {
+            throw new RuntimeException('Could not open the temporary CSV stream.');
+        }
         try {
-            fwrite($stream, $csv);
-            rewind($stream);
+            if (fwrite($stream, $csv) !== strlen($csv) || ! rewind($stream)) {
+                throw new RuntimeException('Could not prepare the temporary CSV stream.');
+            }
             $headers = fgetcsv($stream, null, ',', '"', '');
             $headers = array_map(fn ($h) => trim((string) $h), $headers ?: []);
             $looksLikeData = array_intersect(['income', 'expense'], array_map('strtolower', $headers))
-                && array_filter($headers, fn ($header) => preg_match('/^\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}$/D', $header));
+                && array_filter($headers, fn ($header) => preg_match('/^\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}$/D', $header) === 1);
             if ($looksLikeData || count($headers) < 2 || in_array('', $headers, true) || count(array_unique($headers)) !== count($headers)) {
                 throw ValidationException::withMessages(['file' => 'Include a header row with distinct, nonempty column names.']);
             }
 
             return DB::transaction(function () use ($actor, $team, $stream, $csv, $headers) {
                 $batch = ImportBatch::create(['team_id' => $team->id, 'user_id' => $actor->id, 'headers' => $headers]);
-                $line = 1 + substr_count(substr($csv, 0, ftell($stream)), "\n");
+                $end = $this->streamPosition($stream);
+                $line = 1 + substr_count(substr($csv, 0, $end), "\n");
                 while (! feof($stream)) {
-                    $start = ftell($stream);
+                    $start = $end;
                     $cells = fgetcsv($stream, null, ',', '"', '');
                     if ($cells === false) {
+                        if (! feof($stream)) {
+                            throw new RuntimeException('Could not read the temporary CSV stream.');
+                        }
                         break;
                     }
-                    $raw = rtrim(substr($csv, $start, ftell($stream) - $start), "\n");
+                    $end = $this->streamPosition($stream);
+                    $record = substr($csv, $start, $end - $start);
+                    $raw = rtrim($record, "\n");
                     // fgetcsv accepts unclosed quotes and may swallow subsequent records.
                     if (! preg_match('/\A(?:"(?:[^"]++|"")*+"|[^",\n]*+)(?:,(?:"(?:[^"]++|"")*+"|[^",\n]*+))*+\z/D', $raw)) {
                         throw ValidationException::withMessages(['file' => "Invalid CSV quoting at source row {$line}."]);
@@ -64,7 +76,7 @@ class CsvImportService
                     if ($cells !== [null]) {
                         $batch->rows()->create(['team_id' => $team->id, 'row_number' => $line, 'cells' => $cells]);
                     }
-                    $line += substr_count(substr($csv, $start, ftell($stream) - $start), "\n");
+                    $line += substr_count($record, "\n");
                 }
                 if (! $batch->rows()->exists()) {
                     throw ValidationException::withMessages(['file' => 'Include at least one data row.']);
@@ -77,6 +89,18 @@ class CsvImportService
         }
     }
 
+    /** @param  resource  $stream */
+    private function streamPosition($stream): int
+    {
+        $position = ftell($stream);
+        if ($position === false) {
+            throw new RuntimeException('Could not locate the current CSV record.');
+        }
+
+        return $position;
+    }
+
+    /** @param  array<string, mixed>  $mapping */
     public function review(User $actor, Team $team, int $id, array $mapping, string $format, bool $cash): ImportBatch
     {
         $batch = $this->batch($actor, $team, $id);
@@ -98,7 +122,7 @@ class CsvImportService
 
         return DB::transaction(function () use ($batch, $mapping, $format, $cash, $team) {
             $batch = $batch->newQuery()->lockForUpdate()->findOrFail($batch->id);
-            abort_if($batch->committed_at, 409);
+            abort_if($batch->committed_at !== null, 409);
             $batch->update(['mapping' => $mapping, 'date_format' => $format, 'confirmed_cash' => $cash, 'revision' => $batch->revision + 1]);
             $this->evaluate($batch, $team);
 
@@ -168,6 +192,10 @@ class CsvImportService
         return $changed;
     }
 
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<int, string>
+     */
     private function texts(array $attributes): array
     {
         return array_unique(array_filter(array_map(fn ($v) => Str::lower(Str::squish($v ?? '')), [$attributes['description'], $attributes['source_reference'] ?? '']), fn ($v) => $v !== ''));
@@ -178,6 +206,11 @@ class CsvImportService
         throw ValidationException::withMessages(['row' => $reason]);
     }
 
+    /**
+     * @param  array<string, string>  $f
+     * @param  array<string, mixed>  $review
+     * @return array{transaction_date: string, direction: string, amount: string, description: string, source_reference: ?string, external_id: ?string, category_id: ?int, source_type: string}
+     */
     private function attributes(Team $team, ImportBatch $batch, array $f, array &$review): array
     {
         Validator::make($f, [
@@ -211,23 +244,30 @@ class CsvImportService
             if ($matches->count() !== 1) {
                 $this->reject('Unresolved '.$field.'. Review the name or mapping.');
             }
-            if ($field === 'category') {
-                $category = $matches->first();
+            $match = $matches->sole();
+            if ($match instanceof Category) {
+                $category = $match;
                 if (! in_array($category->type, ['both', $direction], true)) {
                     $this->reject('Category direction does not match.');
                 }
             } else {
-                $review[$field.'_id'] = $matches->first()->id;
+                $review[$field.'_id'] = $match->id;
             }
         }
 
-        return ['transaction_date' => \DateTimeImmutable::createFromFormat('!'.$batch->date_format, $f['date'])->format('Y-m-d'),
+        $date = \DateTimeImmutable::createFromFormat('!'.$batch->date_format, $f['date']);
+        if ($date === false) {
+            $this->reject('Date does not match the selected format.');
+        }
+
+        return ['transaction_date' => $date->format('Y-m-d'),
             'direction' => $direction, 'amount' => (string) BigDecimal::of($f['amount'])->toScale(2),
             'description' => ($f['description'] ?? '') !== '' ? $f['description'] : $f['source_reference'],
             'source_reference' => ($f['source_reference'] ?? '') !== '' ? $f['source_reference'] : null,
             'external_id' => ($f['external_id'] ?? '') !== '' ? $f['external_id'] : null, 'category_id' => $category->id ?? null, 'source_type' => 'csv'];
     }
 
+    /** @param  array<array-key, mixed>  $selected */
     public function commit(User $actor, Team $team, int $id, int $revision, array $selected): ImportBatch
     {
         $batch = $this->batch($actor, $team, $id);
@@ -265,6 +305,9 @@ class CsvImportService
                 $movement = $this->ledger->create($actor, $team, $row->attributes_reviewed);
                 $row->update(['status' => 'imported', 'transaction_id' => $movement->id, 'reason' => null]);
                 $dates[] = $movement->transaction_date->toDateString();
+            }
+            if ($dates === []) {
+                throw ValidationException::withMessages(['review' => 'Select at least one reviewed row to import.']);
             }
             $batch->update(['first_date' => min($dates), 'last_date' => max($dates), 'committed_at' => now()]);
             $this->audit->record($actor, $team, 'import.committed', $batch);
