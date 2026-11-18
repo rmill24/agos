@@ -35,6 +35,11 @@ Route::prefix('{current_team}')
         Route::livewire('transactions', 'pages::transactions.index')
             ->middleware(EnsureBusinessOnboarding::class)
             ->name('transactions.index');
+        foreach (['invoices', 'bills', 'imports'] as $page) {
+            Route::livewire($page, $page === 'imports' ? 'pages::imports.index' : 'pages::obligations.index')
+                ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
+                ->name($page.'.index');
+        }
         Route::livewire('customers', 'pages::contacts.index')
             ->middleware([EnsureBusinessOnboarding::class, 'can:manageContacts,current_team'])
             ->name('customers.index');

@@ -28,6 +28,7 @@ class TransactionService
         $attributes = $this->prepareAttributes($team, $attributes);
 
         return DB::transaction(function () use ($actor, $team, $attributes): Transaction {
+            Team::whereKey($team->id)->lockForUpdate()->firstOrFail();
             $transaction = $team->transactions()->create([
                 ...$attributes,
                 'recorded_by' => $actor->id,
@@ -55,11 +56,16 @@ class TransactionService
         $attributes = $this->prepareAttributes($team, $attributes);
 
         return DB::transaction(function () use ($actor, $team, $transaction, $attributes): Transaction {
+            Team::whereKey($team->id)->lockForUpdate()->firstOrFail();
             $transaction = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
             Gate::forUser($actor)->authorize('update', $transaction);
             abort_unless($transaction->belongsToTeam($team), 403);
             $before = $this->auditSnapshot($transaction);
 
+            if ($transaction->source_type === 'csv') {
+                $attributes['source_type'] = 'csv';
+                $attributes['external_id'] = $transaction->external_id;
+            }
             $transaction->update($attributes);
             $transaction = $transaction->fresh();
 
@@ -82,6 +88,7 @@ class TransactionService
         abort_unless($transaction->belongsToTeam($team), 403);
 
         DB::transaction(function () use ($actor, $team, $transaction): void {
+            Team::whereKey($team->id)->lockForUpdate()->firstOrFail();
             $transaction = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
             Gate::forUser($actor)->authorize('delete', $transaction);
             abort_unless($transaction->belongsToTeam($team), 403);

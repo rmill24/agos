@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\TeamRole;
+use App\Models\Team;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +50,13 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function p2Business(TeamRole $role = TeamRole::Owner): array
+{
+    $actor = User::factory()->create();
+    $team = Team::factory()->create(['onboarding_completed_at' => now()]);
+    $team->members()->attach($actor, ['role' => $role]);
+
+    return [$actor, $team];
 }

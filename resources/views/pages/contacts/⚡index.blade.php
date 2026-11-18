@@ -192,48 +192,33 @@ new class extends Component
                 </flux:select>
             </div>
     </div>
-    <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
-        <table class="w-full table-fixed text-left text-sm">
-            <caption class="sr-only">{{ $title }}</caption>
-            <thead class="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
-                <tr>
-                    <th scope="col" class="px-5 py-3">{{ __('Name') }}</th>
-                    <th scope="col" class="hidden px-3 py-3 md:table-cell">{{ __('Email') }}</th>
-                    <th scope="col" class="hidden px-3 py-3 lg:table-cell">{{ __('Phone') }}</th>
-                    <th scope="col" class="w-24 px-3 py-3 text-right font-medium">{{ __('Actions') }}</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                @forelse ($contacts as $contact)
-                    <tr wire:key="contact-{{ $contact->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
-                        <th scope="row" class="px-5 py-4">
-                            <button type="button" wire:click="openProfile({{ $contact->id }})" class="flex max-w-full items-center gap-3 text-left">
-                                <x-contact-avatar :contact="$contact" />
-                                <span class="min-w-0 wrap-break-word font-semibold">{{ $contact->name }}</span>
-                            </button>
-                        </th>
-                        <td class="hidden wrap-break-word px-3 py-4 md:table-cell">{{ $contact->email ?: '—' }}</td>
-                        <td class="hidden wrap-break-word px-3 py-4 lg:table-cell">{{ $contact->phone ?: '—' }}</td>
-                        <td class="px-3 py-4 text-right">
-                            <flux:button size="sm" variant="outline" wire:click="openProfile({{ $contact->id }})" :aria-label="__('View details for :name', ['name' => $contact->name])">{{ __('Details') }}</flux:button>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="4" class="p-8 text-center text-slate-600">
-                        {{ trim($search) !== '' ? __('No matching contacts.') : ($status === 'archived' ? __('No archived contacts.') : ($suppliers ? __('No suppliers yet.') : __('No customers yet.'))) }}
-                    </td></tr>
-                @endforelse
-            </tbody>
-        </table>
-        <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3 text-sm text-slate-600">
-            <span>{{ trans_choice('{0} 0 records|{1} 1 record|[2,*] :first–:last of :count records', $contacts->total(), ['first' => $contacts->firstItem(), 'last' => $contacts->lastItem()]) }}</span>
-            <nav aria-label="{{ __('Directory pagination') }}" class="flex flex-wrap items-center gap-3">
-                <flux:button size="sm" wire:click="previousPage" :disabled="$contacts->onFirstPage()">{{ __('Previous') }}</flux:button>
-                <span>{{ __('Page :page of :last', ['page' => $contacts->currentPage(), 'last' => $contacts->lastPage()]) }}</span>
-                <flux:button size="sm" wire:click="nextPage" :disabled="! $contacts->hasMorePages()">{{ __('Next') }}</flux:button>
-            </nav>
-        </footer>
-    </div>
+    <x-directory-table :records="$contacts" :caption="$title">
+        <x-slot:head>
+            <th scope="col" class="px-5 py-3">{{ __('Name') }}</th>
+            <th scope="col" class="hidden px-3 py-3 md:table-cell">{{ __('Email') }}</th>
+            <th scope="col" class="hidden px-3 py-3 lg:table-cell">{{ __('Phone') }}</th>
+            <th scope="col" class="w-24 px-3 py-3 text-right font-medium">{{ __('Actions') }}</th>
+        </x-slot:head>
+        @forelse ($contacts as $contact)
+            <tr wire:key="contact-{{ $contact->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                <th scope="row" class="px-5 py-4">
+                    <button type="button" wire:click="openProfile({{ $contact->id }})" class="flex max-w-full items-center gap-3 text-left">
+                        <x-contact-avatar :contact="$contact" />
+                        <span class="min-w-0 wrap-break-word font-semibold">{{ $contact->name }}</span>
+                    </button>
+                </th>
+                <td class="hidden wrap-break-word px-3 py-4 md:table-cell">{{ $contact->email ?: '—' }}</td>
+                <td class="hidden wrap-break-word px-3 py-4 lg:table-cell">{{ $contact->phone ?: '—' }}</td>
+                <td class="px-3 py-4 text-right">
+                    <flux:button size="sm" variant="outline" wire:click="openProfile({{ $contact->id }})" :aria-label="__('View details for :name', ['name' => $contact->name])">{{ __('Details') }}</flux:button>
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="4" class="p-8 text-center text-slate-600">
+                {{ trim($search) !== '' ? __('No matching contacts.') : ($status === 'archived' ? __('No archived contacts.') : ($suppliers ? __('No suppliers yet.') : __('No customers yet.'))) }}
+            </td></tr>
+        @endforelse
+    </x-directory-table>
 
     <flux:modal name="contact-profile" variant="flyout" class="w-full sm:max-w-md">
         @if ($profile)

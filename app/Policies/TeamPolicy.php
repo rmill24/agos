@@ -10,7 +10,12 @@ class TeamPolicy
 {
     public function manageContacts(User $user, Team $team): bool
     {
-        return ! $team->is_personal
+        return $this->manageFinancialRecords($user, $team);
+    }
+
+    public function manageFinancialRecords(User $user, Team $team): bool
+    {
+        return ! $user->isSystemAdministrator() && ! $team->is_personal
             && $team->isOnboardingComplete()
             && $user->belongsToTeam($team)
             && $user->hasTeamPermission($team, TeamPermission::ManageFinancialRecords);

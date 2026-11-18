@@ -22,6 +22,9 @@
                     @if (($activeTeam = auth()->user()->currentTeam) && auth()->user()->can('manageContacts', $activeTeam))
                         <flux:sidebar.item icon="users" :href="route('customers.index', $activeTeam)" :current="request()->routeIs('customers.*')" wire:navigate>{{ __('Customers') }}</flux:sidebar.item>
                         <flux:sidebar.item icon="building-office" :href="route('suppliers.index', $activeTeam)" :current="request()->routeIs('suppliers.*')" wire:navigate>{{ __('Suppliers') }}</flux:sidebar.item>
+                        @foreach (['invoices' => ['Invoices', 'document-text'], 'bills' => ['Supplier bills', 'clipboard-document-list'], 'imports' => ['CSV imports', 'document-arrow-up']] as $page => [$label, $icon])
+                            <flux:sidebar.item :icon="$icon" :href="route($page.'.index', $activeTeam)" :current="request()->routeIs($page.'.index')" wire:navigate>{{ $label }}</flux:sidebar.item>
+                        @endforeach
                     @endif
                 </flux:sidebar.group>
                 <div class="agos-nav-label">{{ __('Settings') }}</div>

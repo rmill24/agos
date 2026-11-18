@@ -223,6 +223,9 @@ new #[Title('Transactions')] class extends Component
 
 <section class="w-full">
     <div class="space-y-6">
+        @if(\App\Models\ImportBatch::where('team_id',$team->id)->whereNotNull('committed_at')->where('incomplete_history',true)->exists())
+            <p class="rounded-lg border p-3"><strong>Incomplete history</strong> · Imported movements cover a limited period. Opening cash is unknown.</p>
+        @endif
         <div class="flex items-center justify-between gap-4">
             <div>
                 <flux:heading size="xl">{{ __('Transactions') }}</flux:heading>
@@ -296,8 +299,10 @@ new #[Title('Transactions')] class extends Component
                             </td>
                             <td class="space-x-2 px-4 py-3 text-right">
                                 <flux:button size="sm" variant="outline" wire:click="viewTransaction({{ $transaction->id }})">{{ __('Details') }}</flux:button>
+                                @can('update', $transaction)
                                 <flux:button size="sm" variant="outline" wire:click="editTransaction({{ $transaction->id }})">{{ __('Edit') }}</flux:button>
                                 <flux:button size="sm" variant="danger" wire:click="archiveTransaction({{ $transaction->id }})">{{ __('Archive') }}</flux:button>
+                                @endcan
                             </td>
                         </tr>
                     @empty
