@@ -12,7 +12,18 @@ The isolated PostgreSQL 17 suite passed all 151 tests (577 assertions), includin
 
 The full isolated PostgreSQL 17 suite passed **157 tests and 625 assertions**. SQLite passed 155 tests with two PostgreSQL-only skips. PHPStan, Pint and the production build passed. The new migration applied, rolled back and reapplied on isolated PostgreSQL and is applied on the configured local database. Chrome review at 1440, 768 and 390 CSS pixels verified viewport fit, visible keyboard focus, quarantine review and the retry action. During verification, the Team test factory was changed to use the model’s existing slug generator after a random slug collision.
 
-**Next task is P3-T04.** Extend fixture coverage for discounts, included taxes, split tenders, refunds, paid and unpaid receipts, revisions, duplicates and provider failures. Live store permissions, payment mappings and financial reconciliation remain unverified.
+**P3-T04 complete with synthetic receipts.** A discounted PHP 100.80 sale including VAT produces two income movements of PHP 60.00 and PHP 40.80. A linked PHP 25.00 refund posts on its own Manila date. Replaying both receipts preserves the original movements. Additional cases cover negative refund amounts, conflicting signs and the PHP 0.01 reconciliation tolerance. Existing fixtures cover missing or unverified payments, cancellation, duplicate and revised receipts, timeouts, malformed pages and interrupted syncs.
+
+The full isolated PostgreSQL 17 suite passed **162 tests and 653 assertions**. Pint, PHPStan and the production build passed. Live store permissions, payment mappings and reconciliation against Back Office remain unverified.
+
+### P3 handoff to P4
+
+**Start with P4-T01.** Implement the server-side cash position and forecast calculations, including the first date projected cash falls below the business threshold and the size of that gap. P4 development can proceed with local fixtures. [P4 task sequence](../AGOS_Implementation_Plan.md#p4--cash-engine-and-scenarios)
+
+- **Confirmed cash input.** Read the authorized Team’s active ledger transactions. P3 publishes each verified Loyverse payment there as income or expense. Staged receipts and sync entries supply evidence and review history. Adding their totals to the ledger would double-count cash. During an incomplete sync, use the previously published ledger and expose its last successful sync time.
+- **First reconciliation check.** With the synthetic sale and refund as the only movements, net movement is **+PHP 100.80** on 10 October 2026 and **−PHP 25.00** on 12 October in Manila. Cumulative movement is **+PHP 75.80** after the refund, including after replay. An absolute cash balance also requires a known starting position or complete history. Label incomplete history explicitly. [Receipt fixture](../tests/Fixtures/loyverse/discounted-sale-and-refund.json) · [Reconciliation test](../tests/Feature/Financial/LoyverseSyncTest.php)
+- **Forecast inputs.** Keep confirmed, expected, uncertain and optional flows distinct. Issuing an invoice or bill changes the outstanding obligation. Its linked payment changes cash. Use decimal-safe PHP amounts and Manila business dates throughout. [Financial requirements](../AGOS_Functional_Requirements_Specification.md)
+- **Live-store follow-up.** Before relying on a real store’s imported totals, verify its merchant and store IDs, PHP currency, collection-method mappings, and representative sales and refunds against Back Office. [Live verification evidence](loyverse-api-contract.md#evidence-still-needed-from-a-live-store)
 
 ## P2 acceptance — 18 November 2026
 

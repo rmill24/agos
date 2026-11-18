@@ -62,6 +62,66 @@ it('publishes only a completed window and resumes after an outage without duplic
     Queue::assertPushed(SyncLoyversePage::class, 4);
 });
 
+it('publishes the discounted tax-inclusive split sale and its later refund exactly once across replays', function () {
+    config(["loyverse.connections.{$this->team->id}.collected_methods" => ['cash', 'card']]);
+    $fixture = file_get_contents(base_path('tests/Fixtures/loyverse/discounted-sale-and-refund.json'));
+    $this->sequence->push($fixture)->push($fixture);
+
+    $originalIds = null;
+    foreach ([1, 2] as $iteration) {
+        $this->service->start($this->owner, $this->team);
+        $run = $this->team->loyverseSyncs()->latest('id')->first();
+        $this->service->process($this->team->id, $run->id, 1, 0);
+        expect($run->fresh()->status)->toBe('complete')
+            ->and($run->entries()->whereNotNull('reason')->count())->toBe(0);
+
+        $ledger = $this->team->transactions()->orderBy('id')->get();
+        // Gross PHP 112.00 less PHP 11.20 discount includes PHP 10.80 VAT.
+        // The two collections less the later PHP 25.00 return leave PHP 75.80.
+        expect($ledger->map(fn ($movement) => [
+            $movement->source_reference, $movement->transaction_date->toDateString(), $movement->direction, $movement->amount,
+        ])->all())->toBe([
+            ['SALE-42', '2026-10-10', 'income', '60.00'],
+            ['SALE-42', '2026-10-10', 'income', '40.80'],
+            ['RETURN-7', '2026-10-12', 'expense', '25.00'],
+        ]);
+        if ($iteration === 1) {
+            $originalIds = $ledger->modelKeys();
+        } else {
+            expect($ledger->modelKeys())->toBe($originalIds);
+        }
+    }
+    $sale = $this->team->loyverseReceipts()->where('receipt_number', 'SALE-42')->sole()->receipt;
+    expect(array_column($sale['payments'], 'payment_type_id'))->toBe(['cash', 'card'])
+        ->and($sale['total_discounts'][0]['money_amount'])->toBe('11.20')
+        ->and($sale['total_taxes'][0])->toMatchArray(['type' => 'INCLUDED', 'money_amount' => '10.80'])
+        ->and($this->team->loyverseReceipts()->where('receipt_number', 'RETURN-7')->sole()->receipt['refund_for'])->toBe('SALE-42');
+});
+
+it('uses collected amounts and quarantines conflicting refund signs or amounts outside tolerance', function (
+    string $type, string $total, string $paid, ?string $direction
+) {
+    $this->sequence->push(['receipts' => [array_merge($this->receipt, [
+        'receipt_type' => $type, 'total_money' => $total, 'payments' => [['payment_type_id' => 'cash', 'money_amount' => $paid]],
+    ])]]);
+    $this->service->start($this->owner, $this->team);
+    $run = $this->team->loyverseSyncs()->sole();
+    $this->service->process($this->team->id, $run->id, 1, 0);
+    expect($run->fresh()->status)->toBe('complete');
+    if ($direction === null) {
+        expect($this->team->transactions()->count())->toBe(0)->and($run->entries()->sole()->reason)->not->toBeNull();
+    } else {
+        $movement = $this->team->transactions()->sole();
+        expect($movement->direction)->toBe($direction)->and($movement->amount)->toBe(ltrim($paid, '-'))
+            ->and($run->entries()->sole()->reason)->toBeNull();
+    }
+})->with([
+    'one cent difference uses the collected amount' => ['SALE', '70.00', '69.99', 'income'],
+    'two cents difference requires review' => ['SALE', '70.00', '69.98', null],
+    'negative refund representation counts once' => ['REFUND', '-25.00', '-25.00', 'expense'],
+    'conflicting refund signs require review' => ['REFUND', '-25.00', '25.00', null],
+]);
+
 it('replays an expired cursor in the original window', function () {
     $this->sequence->push(['receipts' => [$this->receipt], 'cursor' => 'expired'])
         ->push(['errors' => [['code' => 'INVALID_CURSOR']]], 400)->push(['receipts' => [$this->receipt]]);

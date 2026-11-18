@@ -1,0 +1,30 @@
+{
+  "receipts": [
+    {
+      "receipt_number": "SALE-42",
+      "store_id": "s1",
+      "receipt_type": "SALE",
+      "receipt_date": "2026-10-09T18:00:00Z",
+      "updated_at": "2026-10-09T18:00:01Z",
+      "total_money": 100.80,
+      "total_discount": 11.20,
+      "total_discounts": [{"name": "Promotion", "type": "FIXED_AMOUNT", "money_amount": 11.20}],
+      "total_tax": 10.80,
+      "total_taxes": [{"name": "VAT", "type": "INCLUDED", "money_amount": 10.80}],
+      "payments": [
+        {"payment_type_id": "cash", "money_amount": 60.00},
+        {"payment_type_id": "card", "money_amount": 40.80}
+      ]
+    },
+    {
+      "receipt_number": "RETURN-7",
+      "store_id": "s1",
+      "receipt_type": "REFUND",
+      "refund_for": "SALE-42",
+      "receipt_date": "2026-10-11T17:00:00Z",
+      "updated_at": "2026-10-11T17:00:01Z",
+      "total_money": 25.00,
+      "payments": [{"payment_type_id": "cash", "money_amount": 25.00}]
+    }
+  ]
+}

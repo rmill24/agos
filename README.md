@@ -2,6 +2,8 @@
 
 AGOS is a Laravel 13 + Livewire 4 + PostgreSQL cash-flow application. The AGOS app and database run locally; PDF conversion uses Gotenberg hosted on Render.
 
+**Team handoff, 19 November 2026.** P3’s read-only Loyverse import is complete and verified with synthetic receipts. Start **P4-T01** using the published Team ledger. The handoff identifies the cash inputs, an independently checkable example, and the remaining live-store verification. [P3 handoff to P4](docs/implementation-status.md#p3-handoff-to-p4)
+
 ## Requirements
 
 - PHP 8.4.1+ for the locked dependencies, with `pdo_pgsql`, `mbstring`, `openssl`, and Laravel-required extensions
