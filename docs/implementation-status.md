@@ -4,7 +4,11 @@
 
 **P3-T01 complete for the published API contract.** The [Loyverse receipt contract](loyverse-api-contract.md) maps read permissions, receipt pagination, merchant currency and payment evidence to AGOS financial rules. It includes synthetic reconciliation cases and identifies the evidence required for live store verification. No live account permissions, currency or receipts have been verified.
 
-**Next task is P3-T02.** Implement the read-only Laravel HTTP adapter, server-side token configuration, Team-scoped source mappings and import upsert keys.
+**P3-T02 complete with simulated provider responses.** The read-only Laravel adapter verifies the onboarded owner, merchant and store before staging receipt evidence. Each Team has a server-side token and source mapping. Staged receipts preserve decimal strings, payment methods and provider revision times. The database enforces one receipt number per Team. Newer revisions replace older ones and a failed page rolls back atomically.
+
+The isolated PostgreSQL 17 suite passed all 151 tests (577 assertions), including 10 adapter tests. The receipt migration applied, rolled back and reapplied on the isolated database, and is applied on the configured local database. PHPStan, Pint and the asset build passed. Live credentials and reconciliation remain unverified.
+
+**Next task is P3-T03.** Add authorized manual synchronization, resumable checkpoints, quarantine, and stale or incomplete status in the UI.
 
 ## P2 acceptance — 18 November 2026
 

@@ -148,6 +148,12 @@ php artisan queue:work database --queue=pdf --tries=1 --timeout=60
 
 ## AGOS conventions
 
+### Loyverse receipt adapter
+
+For an authorized business, list its numeric Team ID in `LOYVERSE_TEAM_IDS` in the local untracked `.env`. Separate multiple IDs with commas. For each ID, set `LOYVERSE_TEAM_<ID>_ACCESS_TOKEN`, `LOYVERSE_TEAM_<ID>_MERCHANT_ID` and `LOYVERSE_TEAM_<ID>_STORE_ID` for the same Loyverse account and store. The adapter checks both provider identities before staging receipts. The example configuration leaves the integration disabled. Manual synchronization and publication are planned for P3-T03.
+
+### Application conventions
+
 - One Laravel Team represents one AGOS Business. Team owner = Business Owner; Team member roles = Manager or Bookkeeper. System Administrator is a separate global role. Do not create duplicate Business/Membership tables.
 - Use Livewire single-file components by default; use multi-file/class-based components for complex components. Keep financial calculations in services.
 - Use Laravel migrations for every persistent schema change. Never edit an already-applied migration; create a new one.

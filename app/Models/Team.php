@@ -160,6 +160,12 @@ class Team extends Model
         return $this->hasMany(Supplier::class);
     }
 
+    /** @return HasMany<LoyverseReceipt, $this> */
+    public function loyverseReceipts(): HasMany
+    {
+        return $this->hasMany(LoyverseReceipt::class);
+    }
+
     /**
      * Get the audit events for this business.
      *
