@@ -46,6 +46,9 @@ new class extends Component
         $this->kind = request()->routeIs('bills.index') ? 'bill' : 'invoice';
         $this->date = now('Asia/Manila')->toDateString();
         $this->resetEntry();
+        if (request()->has('document')) {
+            $this->selected = $this->records()->findOrFail(request()->integer('document'))->id;
+        }
     }
 
     private function permit(): void
@@ -163,6 +166,9 @@ new class extends Component
     }
 }; ?>
 <section class="agos-page">
+    @if (request()->routeIs('invoices.index', 'bills.index') && $selected)
+        <span x-init="$nextTick(() => $flux.modal('document-detail').show())"></span>
+    @endif
     <header class="agos-page-header">
         <div>
             <flux:heading level="1" size="xl">{{ $kind === 'invoice' ? 'Invoices' : 'Supplier bills' }}</flux:heading>

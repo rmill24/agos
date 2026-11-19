@@ -17,6 +17,9 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    @can('viewRecommendations', auth()->user()->currentTeam)
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('recommendations.index', auth()->user()->currentTeam)" :current="request()->routeIs('recommendations.index')" wire:navigate>Action Center</flux:sidebar.item>
+                    @endcan
                     <flux:sidebar.item icon="arrows-right-left" :href="route('transactions.index', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('transactions.*')" wire:navigate>{{ __('Transactions') }}</flux:sidebar.item>
                     <flux:sidebar.item icon="tag" :href="route('categories.index', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('categories.*')" wire:navigate>{{ __('Categories') }}</flux:sidebar.item>
                     @if (($activeTeam = auth()->user()->currentTeam) && auth()->user()->can('manageContacts', $activeTeam))

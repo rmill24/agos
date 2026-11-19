@@ -15,10 +15,20 @@ class TeamPolicy
 
     public function manageFinancialRecords(User $user, Team $team): bool
     {
+        return $this->hasFinancialPermission($user, $team, TeamPermission::ManageFinancialRecords);
+    }
+
+    public function viewRecommendations(User $user, Team $team): bool
+    {
+        return $this->hasFinancialPermission($user, $team, TeamPermission::ViewRecommendations);
+    }
+
+    private function hasFinancialPermission(User $user, Team $team, TeamPermission $permission): bool
+    {
         return ! $user->isSystemAdministrator() && ! $team->is_personal
             && $team->isOnboardingComplete()
             && $user->belongsToTeam($team)
-            && $user->hasTeamPermission($team, TeamPermission::ManageFinancialRecords);
+            && $user->hasTeamPermission($team, $permission);
     }
 
     /**
