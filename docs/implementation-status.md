@@ -1,5 +1,110 @@
 # AGOS implementation status
 
+## P5-T03 - Secure AI provider integration - 20 November 2026
+
+**Verified with HTTP fakes.** Added a provider-neutral `AiExplanationProvider`
+interface and one Laravel HTTP adapter for Groq Chat Completions. The default
+model is `openai/gpt-oss-20b`, configurable through `GROQ_MODEL`.
+`config/ai.php` reads `GROQ_API_KEY`, `AI_EXPLANATIONS_ENABLED` (false by
+default) and `AI_EXPLANATIONS_PROVIDER` (groq). Credentials remain backend-only;
+the local `.env` was not read, changed or displayed. `.env.example` contains
+only blank credential placeholders. The application container binds the
+interface to the Groq adapter; no second provider or dependency was added.
+
+The adapter uses the fixed HTTPS endpoint
+`https://api.groq.com/openai/v1/chat/completions`, Bearer authentication and
+JSON-object output. Redirects and automatic retries are disabled. Connection
+timeout is at most three seconds, request timeout at most ten seconds and no
+longer than the remaining fifteen-second orchestration budget. Late results
+are discarded. Database work is not forcibly interrupted; the overall budget
+limits provider time remaining after the deterministic calculation and checks
+the result before returning it. These limits are configuration targets, not
+live-provider latency measurements.
+
+`RecommendationExplanationService::forTeam(User, Team, days: 30)` generates a
+fresh authorized `RecommendationService` report before any external call.
+`RecommendationExplanationContext` is immutable and can only be constructed
+through that authorized generation path. It projects candidate IDs, supported
+actions, priorities, decimal values, dates, relevant evidence summaries,
+freshness, history completeness and all documented limitations. Customer and
+business names, document numbers/descriptions, raw ledger/history/daily inputs,
+unrelated records and credentials are omitted. No database tools, execution
+tools, financial writes or caller-provided evidence are exposed to the model.
+
+Request/response contract:
+
+- Input includes schema version, a SHA-256 `snapshot_id` for the projected
+  context, review period, currency, candidates, evidence keyed by the existing
+  AGOS references, per-action approved explanation choices and identified
+  limitations. Only evidence actually referenced by candidates is sent.
+- Output must contain exactly `schema_version`, `snapshot_id`,
+  `summary_action_ids`, ranked `actions` and `limitation_ids`. Each action
+  contains exactly `action_id`, `explanation_codes` and `evidence_references`.
+- The validator requires the matching snapshot/version, every supplied action
+  exactly once, valid summary IDs, approved statement codes, the exact evidence
+  set belonging to each action, and all limitation IDs. Unknown fields,
+  unsupported actions/references, changed cash-effect fields, free-form prose,
+  missing candidates/limitations and malformed responses are rejected.
+- The backend renders selected approved statements as explanations. This
+  intentionally constrained explanation plan prevents the model from supplying
+  new financial claims, amounts or actions inside prose. Suggested ordering
+  remains separate; the deterministic report and official priorities/values
+  are returned unchanged. All source limitations are retained.
+
+Orchestration returns `report`, nullable `explanation`, `explanation_status`
+and a sanitized `failure_reason`. Disabled AI, absent credentials, unsupported
+configuration, no supported actions, excessive input, authentication failures,
+rate limits, network/timeouts, other HTTP errors and invalid responses preserve
+the deterministic report. Provider error bodies and original exceptions are
+not logged, returned or attached to the sanitized exception. Limits are ten
+candidates, 24 KB input JSON, 64 KB provider envelope and 20 KB plan content.
+Large inputs fall back rather than silently omitting candidates. Interactive
+429 handling returns fallback immediately instead of waiting or replaying a
+generation request.
+
+The Action Center, its financial services and existing UI behavior remain
+unchanged. This task deliberately exposes backend orchestration only; enabling
+`AI_EXPLANATIONS_ENABLED=true` permits explicit service invocations and does
+not make page loads call Groq. UI integration and comprehensive fallback UX
+remain for approved follow-up work. No live provider call was made, so account
+credentials, model permissions and live response compliance remain unverified.
+Timeouts and connection failures currently share `network_failure`; repeated
+failure cooldowns and comprehensive adversarial/fallback testing remain for
+P5-T04. There is no new persistence, route or migration.
+
+Changed files: `.env.example`, `config/ai.php`,
+`app/Contracts/AiExplanationProvider.php`,
+`app/Data/RecommendationExplanationContext.php`,
+`app/Exceptions/ExplanationUnavailable.php`,
+`app/Integrations/Ai/GroqExplanationProvider.php`,
+`app/Services/ExplanationResponseValidator.php`,
+`app/Services/RecommendationExplanationService.php`,
+`app/Providers/AppServiceProvider.php`, `phpunit.xml`,
+`tests/Feature/Financial/AiExplanationTest.php`, and this document.
+
+Verification: full default SQLite suite **279 passed, 1,228 assertions, two
+expected PostgreSQL-only skips** (281 tests total). The 38 new cases cover
+configuration, binding, minimized authorized requests, valid plan rendering,
+unchanged records/reports, missing credentials, disabled/no-candidate paths,
+provider errors, connection timeouts, malformed envelopes, basic contract and
+evidence rejection, input/deadline limits, role permissions, revocation,
+cross-Team attempts and incomplete onboarding. PHPUnit forces AI off and clears
+the credential before individual tests opt into synthetic configuration and
+HTTP fakes; automated tests never call the live provider. Existing Action
+Center tests still pass with no provider requests. Full Pint `--test`, PHPStan
+(zero errors), Vite build, configured PostgreSQL migration status (all applied)
+and `git diff --check` passed. Vite retains its existing optional `fontaine`
+notice. The two skipped concurrency cases require PostgreSQL row locking; no
+separate PostgreSQL suite was run.
+
+Provider contracts were checked against the official
+[Groq API reference](https://console.groq.com/docs/api-reference),
+[JSON output documentation](https://console.groq.com/docs/structured-outputs)
+and [error reference](https://console.groq.com/docs/errors). Backend validation
+remains mandatory regardless of provider output-mode guarantees.
+
+**Next task:** P5-T04, pending explicit approval. No P5-T04 task group was begun.
+
 ## P5-T02 - Action Center UI - 20 November 2026
 
 **Verified.** Upgraded the existing Action Center single-file Livewire page to
