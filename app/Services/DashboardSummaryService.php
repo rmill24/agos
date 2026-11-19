@@ -9,10 +9,10 @@ use Illuminate\Support\Facades\Gate;
 
 class DashboardSummaryService
 {
-    public function __construct(private RecommendationService $recommendations) {}
+    public function __construct(private RecommendationService $recommendations, private CashFlowService $cashFlow) {}
 
     /** @return array<string, mixed> */
-    public function forTeam(User $actor, Team $team): array
+    public function forTeam(User $actor, Team $team, int $forecastDays = 30): array
     {
         $team = $team->fresh() ?? abort(404);
         Gate::forUser($actor)->authorize('viewDashboard', $team);
@@ -41,7 +41,8 @@ class DashboardSummaryService
             ? array_slice($this->recommendations->candidates($actor, $team), 0, 3) : [];
         $latestSync = $team->loyverseSyncs()->latest('id')->first();
         $lastSuccess = $team->loyverseSyncs()->where('status', 'complete')->latest('id')->first();
+        $cashFlow = $this->cashFlow->forTeam($actor, $team, null, days: $forecastDays);
 
-        return compact('team', 'today', 'income', 'expense', 'net', 'recent', 'actions', 'latestSync', 'lastSuccess');
+        return compact('team', 'today', 'income', 'expense', 'net', 'recent', 'actions', 'latestSync', 'lastSuccess', 'cashFlow', 'forecastDays');
     }
 }

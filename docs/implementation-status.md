@@ -1,5 +1,33 @@
 # AGOS implementation status
 
+## P4-T02 — Dashboard summaries and accessible forecast chart — 19 November 2026
+
+**Verified.** The authenticated business dashboard now consumes the authorized
+`CashFlowService`, supports validated 7/14/30/60/90-day forecast periods, and
+shows current cash, projected cash, the Team cash-safety threshold, earliest
+shortfall, cash gap, source limitations, and selected dates. Unknown opening
+history remains visibly unavailable; forecasts are labeled separately from
+confirmed ledger movement. Confirmed, expected, uncertain, and optional states
+are documented in the dashboard legend and accessible table.
+
+Chart.js is bundled through Vite for responsive cash-flow movement and balance
+visualization. The chart has labeled axes, units, legend, tooltips, threshold
+line, loading/error states, and an accessible server-rendered data table
+fallback. All chart series are derived from server-returned decimal strings;
+JavaScript only maps them to visual points and does not calculate financial
+totals. Dashboard routes and the CashFlowService retain Team membership,
+onboarding, role, and System Administrator protections.
+
+The focused dashboard/cash tests passed 9 tests with 45 assertions. The full
+suite passed 180 tests with 746 assertions and two expected PostgreSQL-only
+skips. Pint, PHPStan, all migration checks, the Vite production build, and
+`git diff --check` passed. The browser automation dependency is not installed
+in this repository, so visual review was covered by responsive source/layout
+checks and HTTP feature assertions; a manual Chrome review remains advisable.
+
+**Next task:** P4-T03 — implement isolated hypothetical scenarios. Do not begin
+until approved.
+
 ## P4-T01 — Deterministic cash engine — 19 November 2026
 
 **Verified.** Team-scoped cash calculations now reconcile confirmed ledger

@@ -18,6 +18,9 @@ class DashboardController
             return view('dashboard', compact('team'));
         }
 
-        return view('dashboard', $summary->forTeam($request->user(), $team));
+        $forecastDays = (int) $request->integer('forecast_days', 30);
+        $forecastDays = in_array($forecastDays, [7, 14, 30, 60, 90], true) ? $forecastDays : 30;
+
+        return view('dashboard', $summary->forTeam($request->user(), $team, $forecastDays));
     }
 }

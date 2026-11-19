@@ -32,6 +32,11 @@ class CashFlowService
         $inflow = $zero;
         $outflow = $zero;
         $futureItems = [];
+        $historyStart = $asOf->subDays($days - 1);
+        $history = [];
+        for ($date = $historyStart; $date <= $asOf; $date = $date->addDay()) {
+            $history[$date->toDateString()] = ['date' => $date->toDateString(), 'inflow' => $zero, 'outflow' => $zero, 'net' => $zero];
+        }
 
         $transactions = $team->transactions()
             ->whereDate('transaction_date', '<=', $asOf->toDateString())
@@ -39,8 +44,16 @@ class CashFlowService
         foreach ($transactions as $transaction) {
             if ($transaction->direction === 'income') {
                 $inflow = $inflow->plus($transaction->amountAsBigDecimal());
+                if (isset($history[$transaction->transaction_date->toDateString()])) {
+                    $history[$transaction->transaction_date->toDateString()]['inflow'] = $history[$transaction->transaction_date->toDateString()]['inflow']->plus($transaction->amountAsBigDecimal());
+                    $history[$transaction->transaction_date->toDateString()]['net'] = $history[$transaction->transaction_date->toDateString()]['net']->plus($transaction->amountAsBigDecimal());
+                }
             } else {
                 $outflow = $outflow->plus($transaction->amountAsBigDecimal());
+                if (isset($history[$transaction->transaction_date->toDateString()])) {
+                    $history[$transaction->transaction_date->toDateString()]['outflow'] = $history[$transaction->transaction_date->toDateString()]['outflow']->plus($transaction->amountAsBigDecimal());
+                    $history[$transaction->transaction_date->toDateString()]['net'] = $history[$transaction->transaction_date->toDateString()]['net']->minus($transaction->amountAsBigDecimal());
+                }
             }
         }
 
@@ -94,8 +107,28 @@ class CashFlowService
             $day = $date->toDateString();
             $dayItems = array_values(array_filter($futureItems, fn (array $item): bool => $item['date'] === $day));
             $dayNet = $zero;
+            $confirmedInflow = $zero;
+            $confirmedOutflow = $zero;
+            $expectedInflow = $zero;
+            $expectedOutflow = $zero;
+            $uncertainInflow = $zero;
+            $optionalOutflow = $zero;
             foreach ($dayItems as $item) {
-                $dayNet = $item['direction'] === 'inflow' ? $dayNet->plus($item['amount']) : $dayNet->minus($item['amount']);
+                $amount = BigDecimal::of($item['amount']);
+                if ($item['classification'] === 'confirmed_inflow') {
+                    $confirmedInflow = $confirmedInflow->plus($amount);
+                } elseif ($item['classification'] === 'confirmed_outflow') {
+                    $confirmedOutflow = $confirmedOutflow->plus($amount);
+                } elseif ($item['classification'] === 'expected_inflow') {
+                    $expectedInflow = $expectedInflow->plus($amount);
+                } elseif ($item['classification'] === 'expected_outflow') {
+                    $expectedOutflow = $expectedOutflow->plus($amount);
+                } elseif ($item['classification'] === 'uncertain_collection') {
+                    $uncertainInflow = $uncertainInflow->plus($amount);
+                } elseif ($item['classification'] === 'optional_outflow') {
+                    $optionalOutflow = $optionalOutflow->plus($amount);
+                }
+                $dayNet = $item['direction'] === 'inflow' ? $dayNet->plus($amount) : $dayNet->minus($amount);
             }
             if ($date->isSameDay($asOf)) {
                 $dayNet = $zero;
@@ -116,6 +149,12 @@ class CashFlowService
                 'netMovement' => $this->money($dayNet),
                 'projectedMovement' => $this->money($runningMovement),
                 'projectedCash' => $running === null ? null : $this->money($running),
+                'confirmedInflow' => $this->money($confirmedInflow),
+                'confirmedOutflow' => $this->money($confirmedOutflow),
+                'expectedInflow' => $this->money($expectedInflow),
+                'expectedOutflow' => $this->money($expectedOutflow),
+                'uncertainInflow' => $this->money($uncertainInflow),
+                'optionalOutflow' => $this->money($optionalOutflow),
                 'items' => $dayItems,
             ];
         }
@@ -134,6 +173,12 @@ class CashFlowService
             'historyComplete' => $opening !== null,
             'limitations' => $limitations,
             'items' => $futureItems,
+            'confirmedHistory' => array_map(fn (array $day): array => [
+                'date' => $day['date'],
+                'inflow' => $this->money($day['inflow']),
+                'outflow' => $this->money($day['outflow']),
+                'net' => $this->money($day['net']),
+            ], array_values($history)),
             'daily' => $daily,
             'earliestShortfallDate' => $earliestShortfall,
             'cashGap' => $this->money($cashGap),
