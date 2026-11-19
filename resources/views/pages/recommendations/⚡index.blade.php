@@ -46,7 +46,7 @@ new #[Title('Action Center')] class extends Component
             <flux:text>There are no outstanding balances due today or overdue.</flux:text>
         </div>
     @else
-        <ol class="agos-card divide-y divide-slate-200" aria-label="Prioritized recommendations">
+        <ol class="agos-card divide-y divide-slate-200 dark:divide-slate-700" aria-label="Prioritized recommendations">
             @foreach ($candidates as $item)
                 @php($source = $item['evidence'])
                 <li wire:key="obligation-{{ $source['obligation_id'] }}" class="grid gap-4 p-5 sm:grid-cols-[1fr_auto] sm:p-6">

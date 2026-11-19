@@ -36,7 +36,7 @@
             <div class="mt-6 grid items-start gap-5 xl:grid-cols-[3fr_2fr]">
                 <section class="agos-card min-w-0 p-6">
                     <flux:heading level="2" size="lg">Recent cash movements</flux:heading>
-                    <ul class="mt-3 divide-y divide-slate-200">
+                    <ul class="mt-3 divide-y divide-slate-200 dark:divide-slate-700">
                         @forelse ($recent as $entry)
                             <li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
                                 <div class="min-w-0">
@@ -54,7 +54,7 @@
                 @can('viewRecommendations', $team)
                     <section class="agos-card min-w-0 p-6">
                         <flux:heading level="2" size="lg">Action Center</flux:heading>
-                        <ul class="mt-3 divide-y divide-slate-200">
+                        <ul class="mt-3 divide-y divide-slate-200 dark:divide-slate-700">
                             @forelse ($actions as $action)
                                 @php($source = $action['evidence'])
                                 <li class="space-y-1 py-3">

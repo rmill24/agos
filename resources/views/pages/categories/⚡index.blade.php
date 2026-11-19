@@ -144,16 +144,16 @@ new #[Title('Categories')] class extends Component
             </div>
         </form>
 
-        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
-            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead class="bg-zinc-50 dark:bg-zinc-800">
+        <div class="agos-table-panel">
+            <table class="min-w-full">
+                <thead>
                     <tr>
                         <th class="px-4 py-3 text-left text-sm font-medium">{{ __('Name') }}</th>
                         <th class="px-4 py-3 text-left text-sm font-medium">{{ __('Applies to') }}</th>
                         <th class="px-4 py-3 text-right text-sm font-medium">{{ __('Actions') }}</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @forelse ($this->categories as $category)
                         <tr>
                             <td class="px-4 py-3">{{ $category->name }}</td>
@@ -164,7 +164,7 @@ new #[Title('Categories')] class extends Component
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="3" class="px-4 py-8 text-center text-zinc-500">{{ __('No categories yet.') }}</td></tr>
+                        <tr><td colspan="3" class="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">{{ __('No categories yet.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

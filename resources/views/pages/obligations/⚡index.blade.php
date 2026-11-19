@@ -180,7 +180,7 @@ new class extends Component
     <flux:modal name="document-form" class="w-full sm:max-w-xl">
         <form wire:submit="save" class="space-y-4">
             <flux:heading level="2">New {{ $kind }}</flux:heading>
-            @if ($errors->any())<div role="alert" class="text-sm text-red-700">@foreach ($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>@endif
+            @if ($errors->any())<div role="alert" class="text-sm text-red-700 dark:text-red-300">@foreach ($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>@endif
             <flux:select wire:model="form.contact_id" :label="$kind==='invoice'?'Customer':'Supplier'">
                 <option value="">Choose a contact</option>
                 @foreach($this->contacts as $contact)<option value="{{ $contact->id }}">{{ $contact->name }}</option>@endforeach
@@ -229,20 +229,20 @@ new class extends Component
             <th scope="col" class="w-24 px-3 py-3 text-right font-medium">Actions</th>
         </x-slot:head>
         @forelse ($this->documents as $doc)
-            <tr wire:key="document-{{ $doc->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <tr wire:key="document-{{ $doc->id }}">
                 <th scope="row" class="wrap-break-word px-5 py-4">
                     <button type="button" wire:click="open({{ $doc->id }})" class="text-left font-semibold">{{ $doc->number ?? $doc->description }}</button>
-                    <span class="block font-normal text-slate-600">{{ ($doc->customer ?? $doc->supplier)->name }}</span>
+                    <span class="block font-normal text-slate-600 dark:text-slate-300">{{ ($doc->customer ?? $doc->supplier)->name }}</span>
                     <span class="block font-normal md:hidden">Due {{ $doc->due_date }}</span>
                     <span class="block font-normal sm:hidden">{{ $doc->dueStatus() }} · {{ $doc->settlement() }} · ₱{{ $doc->balance() }} outstanding</span>
                 </th>
                 <td class="hidden px-3 py-4 md:table-cell">{{ $doc->due_date }}</td>
-                <td class="hidden px-3 py-4 sm:table-cell">{{ $doc->dueStatus() }}<span class="block text-slate-600">{{ $doc->settlement() }}</span></td>
+                <td class="hidden px-3 py-4 sm:table-cell">{{ $doc->dueStatus() }}<span class="block text-slate-600 dark:text-slate-300">{{ $doc->settlement() }}</span></td>
                 <td class="hidden wrap-break-word px-3 py-4 text-right tabular-nums sm:table-cell">₱{{ $doc->balance() }}</td>
                 <td class="px-3 py-4 text-right"><flux:button size="sm" variant="outline" wire:click="open({{ $doc->id }})" :aria-label="'View details for '.($doc->number ?? $doc->description)">Details</flux:button></td>
             </tr>
         @empty
-            <tr><td colspan="5" class="p-8 text-center text-slate-600">No {{ $filter || $search ? 'matching ' : '' }}{{ $kind === 'invoice' ? 'invoices' : 'bills' }}{{ $filter || $search ? '.' : ' yet.' }}</td></tr>
+            <tr><td colspan="5" class="p-8 text-center text-slate-600 dark:text-slate-300">No {{ $filter || $search ? 'matching ' : '' }}{{ $kind === 'invoice' ? 'invoices' : 'bills' }}{{ $filter || $search ? '.' : ' yet.' }}</td></tr>
         @endforelse
     </x-directory-table>
 
@@ -257,15 +257,15 @@ new class extends Component
                 @if ($notice)
                     <p class="agos-card p-4" role="status">{{ $notice }}</p>
                 @endif
-                <dl class="grid grid-cols-2 gap-4 border-y border-slate-200 py-5 text-sm">
+                <dl class="grid grid-cols-2 gap-4 border-y border-slate-200 dark:border-slate-700 py-5 text-sm">
                     @foreach (['Issued' => $doc->issue_date, 'Due date' => $doc->due_date, 'Due status' => $doc->dueStatus(), 'Settlement' => $doc->settlement(), 'Total' => '₱'.$doc->total, 'Outstanding' => '₱'.$doc->balance()] as $label => $value)
-                        <div><dt class="font-medium text-slate-600">{{ $label }}</dt><dd class="mt-1 wrap-break-word">{{ $value }}</dd></div>
+                        <div><dt class="font-medium text-slate-600 dark:text-slate-300">{{ $label }}</dt><dd class="mt-1 wrap-break-word">{{ $value }}</dd></div>
                     @endforeach
                 </dl>
                 @if ($doc->lines->isNotEmpty())
                     <div>
                         <flux:heading level="3">Line items</flux:heading>
-                        <ul class="divide-y divide-slate-200 text-sm">
+                        <ul class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
                             @foreach ($doc->lines as $line)
                                 <li class="flex flex-wrap justify-between gap-2 py-2">
                                     <span class="wrap-break-word">{{ $line->description }}</span>
@@ -284,7 +284,7 @@ new class extends Component
                     @endforelse
                 </div>
                 @if ($doc->balance()->isPositive())
-                    <form wire:submit="pay" class="grid gap-3 border-t border-slate-200 pt-4">
+                    <form wire:submit="pay" class="grid gap-3 border-t border-slate-200 dark:border-slate-700 pt-4">
                         <flux:input wire:model="amount" label="Payment (PHP)" inputmode="decimal"/>
                         <flux:input type="date" wire:model="date" label="Payment date"/>
                         <flux:button type="submit" variant="primary">Record payment</flux:button>

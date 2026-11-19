@@ -326,9 +326,9 @@ new #[Title('Transactions')] class extends Component
             </div>
         </form>
 
-        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
-            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead class="bg-zinc-50 dark:bg-zinc-800">
+        <div class="agos-table-panel">
+            <table class="min-w-full">
+                <thead>
                     <tr>
                         <th class="px-4 py-3 text-left text-sm font-medium">{{ __('Date') }}</th>
                         <th class="px-4 py-3 text-left text-sm font-medium">{{ __('Description') }}</th>
@@ -337,13 +337,13 @@ new #[Title('Transactions')] class extends Component
                         <th class="px-4 py-3 text-right text-sm font-medium">{{ __('Actions') }}</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @forelse ($this->transactions as $transaction)
                         <tr>
                             <td class="px-4 py-3">{{ $transaction->transaction_date->toDateString() }}</td>
                             <td class="px-4 py-3">{{ $transaction->description }}</td>
                             <td class="px-4 py-3">{{ $transaction->category?->name ?? __('Uncategorized') }}</td>
-                            <td class="px-4 py-3 text-right {{ $transaction->direction === 'expense' ? 'text-red-600' : 'text-emerald-600' }}">
+                            <td class="px-4 py-3 text-right {{ $transaction->direction === 'expense' ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-300' }}">
                                 {{ $transaction->direction === 'expense' ? '-' : '+' }}₱{{ $transaction->amount }}
                             </td>
                             <td class="space-x-2 px-4 py-3 text-right">
@@ -355,7 +355,7 @@ new #[Title('Transactions')] class extends Component
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-4 py-8 text-center text-zinc-500">{{ __('No transactions found.') }}</td></tr>
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">{{ __('No transactions found.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -369,10 +369,10 @@ new #[Title('Transactions')] class extends Component
                     <flux:button variant="ghost" wire:click="$set('selectedId', null)">{{ __('Close') }}</flux:button>
                 </div>
                 <dl class="grid gap-3 text-sm md:grid-cols-3">
-                    <div><dt class="text-zinc-500">{{ __('Direction') }}</dt><dd>{{ ucfirst($this->selectedTransaction->direction) }}</dd></div>
-                    <div><dt class="text-zinc-500">{{ __('Amount') }}</dt><dd>₱{{ $this->selectedTransaction->amount }}</dd></div>
-                    <div><dt class="text-zinc-500">{{ __('Recorded by') }}</dt><dd>{{ $this->selectedTransaction->recordedBy?->name ?? __('Deleted user') }}</dd></div>
-                    <div class="md:col-span-3"><dt class="text-zinc-500">{{ __('Description') }}</dt><dd>{{ $this->selectedTransaction->description }}</dd></div>
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Direction') }}</dt><dd>{{ ucfirst($this->selectedTransaction->direction) }}</dd></div>
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Amount') }}</dt><dd>₱{{ $this->selectedTransaction->amount }}</dd></div>
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Recorded by') }}</dt><dd>{{ $this->selectedTransaction->recordedBy?->name ?? __('Deleted user') }}</dd></div>
+                    <div class="md:col-span-3"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Description') }}</dt><dd>{{ $this->selectedTransaction->description }}</dd></div>
                 </dl>
                 @if (Auth::user()->ownsTeam($team))
                     <div>

@@ -1,15 +1,15 @@
 @props(['showTeam' => true])
 
 <flux:dropdown position="bottom" align="start">
-    <button type="button" class="group flex w-full items-center rounded-lg p-1 text-slate-700 hover:bg-slate-100" data-test="sidebar-menu-button">
+    <button type="button" class="group flex w-full items-center rounded-lg p-1 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" data-test="sidebar-menu-button">
         <flux:avatar :initials="auth()->user()->initials()" size="sm" />
         <div class="in-data-flux-sidebar-collapsed-desktop:hidden mx-2 grid flex-1 text-start text-sm leading-tight">
-            <span class="truncate font-medium text-slate-700 group-hover:text-brand-700">{{ auth()->user()->name }}</span>
+            <span class="truncate font-medium text-slate-700 dark:text-slate-200 group-hover:text-brand-700 dark:group-hover:text-blue-300">{{ auth()->user()->name }}</span>
             @if($showTeam && auth()->user()->currentTeam)
-                <span class="truncate text-xs text-slate-500">{{ auth()->user()->currentTeam->name }}</span>
+                <span class="truncate text-xs text-slate-500 dark:text-slate-400">{{ auth()->user()->currentTeam->name }}</span>
             @endif
         </div>
-        <flux:icon name="chevrons-up-down" variant="micro" class="in-data-flux-sidebar-collapsed-desktop:hidden ms-auto size-4 text-slate-500 group-hover:text-brand-700" />
+        <flux:icon name="chevrons-up-down" variant="micro" class="in-data-flux-sidebar-collapsed-desktop:hidden ms-auto size-4 text-slate-500 dark:text-slate-400 group-hover:text-brand-700 dark:group-hover:text-blue-300" />
     </button>
 
     <flux:menu>

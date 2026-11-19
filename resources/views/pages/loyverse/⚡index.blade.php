@@ -98,7 +98,7 @@ new class extends Component
                 @endif
             </article>
         @empty
-            <p class="agos-card p-5 text-sm text-slate-600">No receipt sync has run for this business.</p>
+            <p class="agos-card p-5 text-sm text-slate-600 dark:text-slate-300">No receipt sync has run for this business.</p>
         @endforelse
         {{ $history->links() }}
     </section>
@@ -106,7 +106,7 @@ new class extends Component
         <section class="agos-card mt-6 space-y-3 p-5" aria-live="polite">
             <flux:heading level="2">Quarantined receipts · sync #{{ $reviewId }}</flux:heading>
             @foreach($held as $entry)
-                <div class="break-words border-t border-slate-200 pt-2">
+                <div class="break-words border-t border-slate-200 dark:border-slate-700 pt-2">
                     <strong>{{ $entry->receipt_number ?? 'Missing receipt identifier' }}</strong>
                     <flux:text>{{ $entry->reason }}</flux:text>
                 </div>

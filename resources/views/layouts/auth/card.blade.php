@@ -3,19 +3,19 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-slate-50 antialiased">
+    <body class="min-h-screen bg-slate-50 dark:bg-canvas antialiased">
         <div class="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
             <div class="flex w-full max-w-md flex-col gap-6">
                 <a href="{{ route('home') }}" class="flex flex-col items-center gap-2 font-medium" wire:navigate>
                     <span class="flex h-9 w-9 items-center justify-center rounded-md">
-                        <x-app-logo-icon class="size-9 fill-current text-brand-600" />
+                        <x-app-logo-icon class="size-9 fill-current text-brand-600 dark:text-blue-300" />
                     </span>
 
                     <span class="sr-only">{{ config('app.name', 'Laravel') }}</span>
                 </a>
 
                 <div class="flex flex-col gap-6">
-                    <div class="agos-card text-slate-900">
+                    <div class="agos-card text-slate-900 dark:text-slate-100">
                         <div class="px-10 py-8">{{ $slot }}</div>
                     </div>
                 </div>

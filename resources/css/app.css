@@ -40,20 +40,41 @@
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: #2563eb;
+        --color-accent-content: #93c5fd;
+        --color-accent-foreground: #fff;
+        /* Flux uses zinc for neutral controls, menus and their interaction states. */
+        --color-zinc-400: #a5b4c8;
+        --color-zinc-500: #8495ae;
+        --color-zinc-600: #475b77;
+        --color-zinc-700: #33445d;
+        --color-zinc-800: #243248;
+        --color-zinc-900: #172234;
+        --color-zinc-950: #0b1220;
     }
 }
 
 @layer base {
 
     :root {
+        scrollbar-color: #8291a5 transparent;
+        scrollbar-width: thin;
         color-scheme: light;
         --agos-text: #0f172a;
         --agos-text-muted: #475569;
         --agos-text-subtle: #64748b;
         --agos-border: #cbd5e1;
+        --agos-surface: white;
+    }
+
+    :root.dark {
+        color-scheme: dark;
+        --color-canvas: #0b1220;
+        --agos-surface: #172234;
+        --agos-text: #f1f5f9;
+        --agos-text-muted: #cbd5e1;
+        --agos-text-subtle: #94a3b8;
+        --agos-border: #334155;
     }
 
     *,
@@ -66,7 +87,7 @@
 
     html { @apply bg-canvas; }
     body { @apply bg-canvas text-slate-900 antialiased; color: var(--agos-text); }
-    :focus-visible { @apply outline-2 outline-offset-2 outline-brand-600; }
+    :focus-visible { @apply outline-2 outline-offset-2 outline-brand-600 dark:outline-blue-300; }
 
     html:not(.dark) .text-zinc-400 { color: var(--agos-text-subtle) !important; }
     html:not(.dark) .text-zinc-500 { color: var(--agos-text-muted) !important; }
@@ -78,13 +99,38 @@
 @layer components {
     .agos-page { @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8; }
     .agos-page-header { @apply mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between; }
-    .agos-card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
+    .agos-card { @apply rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700; background-color: var(--agos-surface); }
     .agos-card-muted { @apply rounded-2xl border border-slate-200 bg-slate-50/80; }
-    .agos-eyebrow { @apply text-xs font-semibold uppercase tracking-[0.16em] text-brand-600; }
+    .agos-eyebrow { @apply text-xs font-semibold uppercase tracking-[0.16em] text-brand-600 dark:text-blue-300; }
     .agos-link { @apply font-medium text-brand-700 underline decoration-brand-200 underline-offset-4 hover:text-brand-900; }
-    .agos-nav-label { @apply px-3 pb-2 pt-5 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-400; }
+    .agos-nav-label { @apply shrink-0 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400; }
+    .agos-nav-label:not(:first-child) { @apply mt-2; }
     .agos-muted { color: var(--agos-text-muted); }
+    .agos-table-panel { @apply overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700; background: var(--agos-surface); }
+    .agos-table-panel thead { @apply border-b border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-zinc-800 dark:text-slate-200; }
+    .agos-table-panel tbody { @apply divide-y divide-slate-200 dark:divide-slate-700; }
+    .agos-table-panel tbody tr:is(:hover, :focus-within) { @apply bg-slate-50 dark:bg-zinc-800; }
+    .agos-table-panel footer { @apply bg-slate-50 dark:bg-slate-900; }
+    .dark .agos-card-muted { @apply border-slate-700 bg-slate-900; }
+    .dark .agos-link { @apply text-blue-300 decoration-blue-400/60 hover:text-blue-200; }
+    .agos-appearance-switch { @apply inline-flex max-w-full items-center gap-0.5 rounded-full border border-slate-200 bg-white p-1 dark:border-slate-600 dark:bg-slate-900; }
+    .agos-appearance-option { @apply inline-flex min-h-8 min-w-8 items-center justify-center gap-1 rounded-full px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800; }
+    .agos-appearance-option[aria-pressed="true"] { @apply bg-slate-100 text-slate-950 ring-1 ring-slate-300 dark:bg-slate-700 dark:text-white dark:ring-slate-500; }
+    .agos-appearance-switch-compact { @apply ms-auto shrink-0 gap-0 p-0; }
+    .agos-appearance-switch-compact .agos-appearance-option { @apply size-6 min-h-6 min-w-6 p-0; }
+    .agos-appearance-switch-compact svg { @apply size-3.5; }
 }
+
+.agos-sidebar[data-flux-sidebar] { height: 100dvh; overflow: hidden; }
+.agos-sidebar > :not(.agos-sidebar-sections) { flex-shrink: 0; }
+.agos-sidebar-sections { display: flex; flex-direction: column; min-height: 0; }
+.agos-sidebar-scroll[data-flux-sidebar-nav] { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.agos-sidebar-scroll > * { flex-shrink: 0; }
+
+.agos-theme-changing::view-transition-old(root),
+.agos-theme-changing::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+.agos-theme-changing::view-transition-old(root) { z-index: 1; }
+.agos-theme-changing::view-transition-new(root) { z-index: 2; }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
