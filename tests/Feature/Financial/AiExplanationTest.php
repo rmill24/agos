@@ -13,6 +13,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,7 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     $this->travelTo(now()->parse('2026-11-20 02:00:00', 'UTC'));
     config(['ai.enabled' => true, 'ai.provider' => 'groq', 'ai.groq.api_key' => 'synthetic-test-credential', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+    Cache::flush();
     Http::preventStrayRequests();
 });
 
@@ -195,11 +197,16 @@ it('rejects unsupported response fields, actions, statements and evidence', func
             'wrong-action-evidence' => $plan['actions'][0]['evidence_references'] = $input['actions'][0]['evidence_references'],
             'action' => $plan['actions'][0]['action_id'] = 'unsupported-action',
             'cash-effect' => $plan['actions'][0]['cash_effect'] = '1000.00',
+            'amount' => $plan['actions'][0]['amount'] = '1000.00',
+            'date' => $plan['actions'][0]['due_date'] = '2099-01-01',
             'prose' => $plan['actions'][0]['explanation'] = 'Invented financial claim',
             'statement' => $plan['actions'][0]['explanation_codes'] = ['unsupported-claim'],
             'snapshot' => $plan['snapshot_id'] = 'another-snapshot',
+            'schema' => $plan['schema_version'] = '2',
             'limitations' => $plan['limitation_ids'] = [],
             'missing-action' => array_pop($plan['actions']),
+            'extra-action' => $plan['actions'][] = $plan['actions'][0],
+            'missing-evidence' => $plan['actions'][0]['evidence_references'] = [],
         };
 
         return Http::response(aiExplanationEnvelope($plan));
@@ -207,7 +214,42 @@ it('rejects unsupported response fields, actions, statements and evidence', func
     $result = app(RecommendationExplanationService::class)->forTeam($actor, $team);
     expect($result['explanation'])->toBeNull()->and($result['failure_reason'])->toBe('invalid_response')
         ->and($result['report']['recommendations'])->toHaveCount(2);
-})->with(['evidence', 'wrong-action-evidence', 'action', 'cash-effect', 'prose', 'statement', 'snapshot', 'limitations', 'missing-action']);
+})->with(['evidence', 'wrong-action-evidence', 'action', 'cash-effect', 'amount', 'date', 'prose', 'statement', 'snapshot', 'schema', 'limitations', 'missing-action', 'extra-action', 'missing-evidence']);
+
+it('keeps rate-limited teams on cooldown, permits one recovery probe, and clears it after a valid response', function () {
+    [$actor, $team] = aiExplanationBusiness();
+    $calls = 0;
+    Http::fake(function (Request $request) use (&$calls) {
+        $calls++;
+        if ($calls === 1) {
+            return Http::response([], 429);
+        }
+        $input = json_decode($request['messages'][1]['content'], true, 32, JSON_THROW_ON_ERROR);
+
+        return Http::response(aiExplanationEnvelope(aiExplanationPlan($input)));
+    });
+    $service = app(RecommendationExplanationService::class);
+    expect($service->forTeam($actor, $team)['failure_reason'])->toBe('rate_limited')
+        ->and($service->forTeam($actor, $team)['failure_reason'])->toBe('cooldown_active');
+    Http::assertSentCount(1);
+
+    $this->travel(61)->seconds();
+    $recovery = $service->forTeam($actor, $team);
+    expect($recovery['failure_reason'])->toBeNull()->and($recovery['explanation_status'])->toBe('available');
+    Http::assertSentCount(2);
+});
+
+it('starts a team-scoped cooldown only after repeated transient failures', function () {
+    [$actor, $team] = aiExplanationBusiness();
+    [$otherActor, $other] = aiExplanationBusiness();
+    Http::fake([GroqExplanationProvider::ENDPOINT => Http::response([], 503)]);
+    $service = app(RecommendationExplanationService::class);
+    expect($service->forTeam($actor, $team)['failure_reason'])->toBe('provider_unavailable')
+        ->and($service->forTeam($actor, $team)['failure_reason'])->toBe('provider_unavailable')
+        ->and($service->forTeam($actor, $team)['failure_reason'])->toBe('cooldown_active')
+        ->and($service->forTeam($otherActor, $other)['failure_reason'])->toBe('provider_unavailable');
+    Http::assertSentCount(3);
+});
 
 it('rejects an invalid JSON explanation plan', function () {
     [$actor, $team] = aiExplanationBusiness();

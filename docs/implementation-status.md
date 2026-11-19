@@ -1,5 +1,78 @@
 # AGOS implementation status
 
+## P5-T04 - AI validation, fallback and resilience - 20 November 2026
+
+**Verified.** The Action Center now offers an explicitly user-requested AI
+explanation alongside its existing deterministic recommendations. Initial page
+loads never contact a provider. The existing `RecommendationService` report,
+ordering, priority, amounts, dates, evidence links and calculation details
+remain the rendered source of truth. A successful explanation is separately
+stored in locked Livewire state and only renders server-approved explanation
+sentences for matching current recommendation IDs. It cannot reorder cards or
+alter financial values, actions, evidence or limitations. Refresh clears the
+optional explanation before regenerating the deterministic report.
+
+The UI has accessible, responsive status text and controls for: optional
+deterministic fallback before a request, loading, validated AI-generated
+explanation, disabled AI, invalid-response safety rejection, unavailable
+provider, rate-limit/cooldown and retry. Every `requestExplanation` Livewire
+action independently refreshes and authorizes the actor and Team before the
+service can form a provider request. Its Team and explanation properties are
+locked; member revocation is rejected before HTTP. Existing authorized record
+evidence links remain the only evidence navigation; explanations add no URLs
+or records.
+
+`RecommendationExplanationService` now has cache-backed, Team-scoped
+resilience state. A 429 immediately starts a 60-second cooldown. Two
+transient provider/network, malformed-envelope or invalid-plan failures start
+the same cooldown. Calls during it return sanitized `cooldown_active` without
+HTTP. Once it ends, an atomic cache add permits exactly one recovery probe;
+success clears the failure state and a relevant failure starts a new cooldown.
+Authentication/configuration failures are not retried or backlogged. The
+interactive Action Center does not replay generation calls; it continues to
+show deterministic fallback. No provider request/response/error is logged by
+this flow, and no credentials or unnecessary financial data are placed in
+Livewire state.
+
+Validation remains a strict closed response contract. New adversarial coverage
+rejects fabricated/foreign and wrong-action evidence, unknown actions, added
+cash-effect/amount/date values, free-form claims, unsupported statement codes,
+snapshot/schema changes, missing limitations/actions/evidence and duplicate
+extra actions. The authorized provider projection continues to omit document
+descriptions, names and raw history, so prompt-injection-like text in a source
+record is not sent. Provider responses can only select approved statements;
+they cannot introduce claims or calculated values.
+
+Changed files: `app/Services/RecommendationExplanationService.php`,
+`resources/views/pages/recommendations/⚡index.blade.php`,
+`tests/Feature/Financial/AiExplanationTest.php`,
+`tests/Feature/Financial/ActionCenterUiTest.php`, and this document. No
+migration, route, external record or financial rule changed.
+
+Verification: full default SQLite suite **289 passed, 1,274 assertions, two
+expected PostgreSQL-only skips** (291 tests total). The skips remain the two
+payment-concurrency cases requiring PostgreSQL row locks. Focused AI/Action
+Center coverage passed before the full run. Full Pint `--test`, PHPStan (zero
+errors), Vite build and configured PostgreSQL migration status (all 24
+migrations applied) passed; `git diff --check` passed. Vite retains its
+existing optional `fontaine` notice. Chrome/Edge executables were not available
+in this environment, so no interactive Chrome check could be run; Livewire
+rendering and accessibility-oriented markup are covered by feature tests.
+
+One sanctioned live Groq smoke request was attempted with only a synthetic
+`{}` user payload and a short JSON-only instruction. It produced the sanitized
+result `failed_safely`; no key, raw response, provider body, or business data
+was printed or logged. Therefore configured credential/model usability is not
+confirmed, and no automatic retry was made. Automated tests continue to use
+HTTP fakes only.
+
+Remaining limitations: cooldown state uses the configured shared cache and is
+not a durable audit record; recovery is one interactive probe rather than a
+queued retry. The AI explanation remains constrained statement selection, not
+open-ended prose. Live Groq connectivity/account/model access still needs
+manual operational resolution before it can be claimed working. P5 is ready
+for final review; **P6 must not begin without explicit approval.**
+
 ## P5-T03 - Secure AI provider integration - 20 November 2026
 
 **Verified with HTTP fakes.** Added a provider-neutral `AiExplanationProvider`

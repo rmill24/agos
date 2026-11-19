@@ -2,6 +2,7 @@
 
 use App\Enums\GlobalRole;
 use App\Enums\TeamRole;
+use App\Integrations\Ai\GroqExplanationProvider;
 use App\Models\ImportBatch;
 use App\Models\LoyverseSync;
 use App\Models\Obligation;
@@ -9,6 +10,7 @@ use App\Models\Team;
 use App\Services\RecommendationService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
@@ -18,7 +20,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->travelTo(now()->parse('2026-11-20 02:00:00', 'UTC'));
-    Http::fake();
+    Http::preventStrayRequests();
 });
 
 afterEach(function () {
@@ -56,6 +58,70 @@ it('renders service order, labeled financial exposure, record links and calculat
         ->assertSee($invoiceUrl)->assertSee($billUrl);
     $this->get($invoiceUrl)->assertOk()->assertSee('INV-UI');
     $this->get($billUrl)->assertOk()->assertSee('BILL-UI');
+});
+
+it('renders an optional validated AI explanation without changing deterministic recommendation cards', function () {
+    [$actor, $team] = p2Business();
+    $invoice = actionCenterDocument($team, 'invoice', '100.01', '2026-11-19', 'AI-UI-INVOICE');
+    config(['ai.enabled' => true, 'ai.provider' => 'groq', 'ai.groq.api_key' => 'synthetic-test-credential', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+    $baseline = app(RecommendationService::class)->forTeam($actor, $team);
+    Http::fake(function (Request $request) {
+        $input = json_decode($request['messages'][1]['content'], true, 32, JSON_THROW_ON_ERROR);
+        $plan = [
+            'schema_version' => '1', 'snapshot_id' => $input['snapshot_id'],
+            'summary_action_ids' => [$input['actions'][0]['id']],
+            'actions' => array_map(fn (array $action) => [
+                'action_id' => $action['id'], 'explanation_codes' => ['why_this_action', 'cash_treatment'],
+                'evidence_references' => $action['evidence_references'],
+            ], $input['actions']),
+            'limitation_ids' => array_keys($input['limitations']),
+        ];
+
+        return Http::response(['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($plan, JSON_THROW_ON_ERROR)]]]]);
+    });
+    $component = Livewire::actingAs($actor)->test('pages::recommendations.index', ['current_team' => $team])
+        ->assertSee('Deterministic fallback active')->assertSee('Explain verified recommendations')
+        ->call('requestExplanation')->assertSee('AI-generated explanation available')
+        ->assertSee('AI-generated explanation:')->assertSee('uncertain collection, not confirmed cash')
+        ->assertSeeInOrder(['Follow up on collection', 'AI-generated explanation:']);
+    expect(app(RecommendationService::class)->forTeam($actor, $team))->toBe($baseline);
+    expect(fn () => $component->set('aiExplanation', ['actions' => [['explanation' => 'forged']]]))->toThrow(CannotUpdateLockedPropertyException::class);
+    Http::assertSent(fn (Request $request) => $request->url() === GroqExplanationProvider::ENDPOINT);
+    Http::fake();
+});
+
+it('keeps deterministic guidance visible when an AI response is rejected and reauthorizes AI requests', function () {
+    [$actor, $team] = p2Business();
+    actionCenterDocument($team, 'invoice', '100.01', '2026-11-19', 'AI-REJECTED');
+    config(['ai.enabled' => true, 'ai.provider' => 'groq', 'ai.groq.api_key' => 'synthetic-test-credential', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+    Http::fake(function (Request $request) {
+        $input = json_decode($request['messages'][1]['content'], true, 32, JSON_THROW_ON_ERROR);
+        $plan = [
+            'schema_version' => '1', 'snapshot_id' => $input['snapshot_id'], 'summary_action_ids' => [$input['actions'][0]['id']],
+            'actions' => [['action_id' => 'fabricated-action', 'explanation_codes' => ['why_this_action'], 'evidence_references' => []]],
+            'limitation_ids' => array_keys($input['limitations']),
+        ];
+
+        return Http::response(['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($plan, JSON_THROW_ON_ERROR)]]]]);
+    });
+    Livewire::actingAs($actor)->test('pages::recommendations.index', ['current_team' => $team])
+        ->call('requestExplanation')->assertSee('AI explanation rejected for safety')
+        ->assertSee('Retry AI explanation')->assertSee('Follow up on collection')->assertDontSee('fabricated-action');
+    Http::fake();
+    $component = Livewire::actingAs($actor)->test('pages::recommendations.index', ['current_team' => $team]);
+    $team->members()->detach($actor);
+    $component->call('requestExplanation')->assertForbidden();
+});
+
+it('shows a rate-limit fallback without removing deterministic guidance', function () {
+    [$actor, $team] = p2Business();
+    actionCenterDocument($team, 'invoice', '100.01', '2026-11-19', 'AI-RATE-LIMIT');
+    config(['ai.enabled' => true, 'ai.provider' => 'groq', 'ai.groq.api_key' => 'synthetic-test-credential', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+    Http::fake([GroqExplanationProvider::ENDPOINT => Http::response([], 429)]);
+    Livewire::actingAs($actor)->test('pages::recommendations.index', ['current_team' => $team])
+        ->call('requestExplanation')->assertSee('AI explanation temporarily unavailable')
+        ->assertSee('Retry AI explanation')->assertSee('Follow up on collection');
+    Http::fake();
 });
 
 it('renders threshold-only guidance and the exact service rationale', function () {

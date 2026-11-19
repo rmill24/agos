@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Team;
+use App\Services\RecommendationExplanationService;
 use App\Services\RecommendationService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Gate;
@@ -15,6 +16,16 @@ new #[Title('Action Center')] class extends Component
 
     #[Locked]
     public bool $refreshed = false;
+
+    /** @var array<string, mixed>|null */
+    #[Locked]
+    public ?array $aiExplanation = null;
+
+    #[Locked]
+    public string $aiExplanationStatus = 'not_requested';
+
+    #[Locked]
+    public ?string $aiFailureReason = null;
 
     public function mount(Team $current_team): void
     {
@@ -33,6 +44,18 @@ new #[Title('Action Center')] class extends Component
     {
         $this->permit();
         $this->refreshed = true;
+        $this->aiExplanation = null;
+        $this->aiExplanationStatus = 'not_requested';
+        $this->aiFailureReason = null;
+    }
+
+    public function requestExplanation(RecommendationExplanationService $service): void
+    {
+        $this->permit();
+        $result = $service->forTeam(auth()->user(), $this->team);
+        $this->aiExplanation = $result['explanation'];
+        $this->aiExplanationStatus = $result['explanation_status'];
+        $this->aiFailureReason = $result['failure_reason'];
     }
 
     public function with(RecommendationService $service): array
@@ -65,7 +88,7 @@ new #[Title('Action Center')] class extends Component
     </header>
 
     <p class="agos-muted text-sm">Rule-based guidance · Advisory only. Actions require your review and do not execute payments or collections. All amounts are Philippine pesos (PHP); dates use Asia/Manila.</p>
-    <p wire:loading role="status" class="text-sm">Updating recommendations…</p>
+    <p wire:loading wire:target="refreshRecommendations" role="status" class="text-sm">Updating recommendations…</p>
 
     <div wire:loading.remove class="space-y-6">
         @if ($report === null)
@@ -103,6 +126,43 @@ new #[Title('Action Center')] class extends Component
                 </ul>
             </section>
 
+            @if ($report['recommendations'] !== [])
+                <section class="agos-card space-y-3 p-5 sm:p-6" aria-labelledby="ai-explanation-heading" aria-live="polite">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <flux:heading id="ai-explanation-heading" level="2">AI explanation</flux:heading>
+                            <p class="agos-muted text-sm">Optional clarification of the verified rule-based guidance. It cannot change actions, priorities, values, dates, or evidence.</p>
+                        </div>
+                        @if ($aiExplanationStatus !== 'available' && $aiExplanationStatus !== 'disabled')
+                            <flux:button wire:click="requestExplanation" wire:loading.attr="disabled" wire:target="requestExplanation">{{ $aiExplanationStatus === 'not_requested' ? 'Explain verified recommendations' : 'Retry AI explanation' }}</flux:button>
+                        @endif
+                    </div>
+
+                    <p wire:loading wire:target="requestExplanation" role="status" class="text-sm">Requesting an AI explanation of verified guidance...</p>
+
+                    <div wire:loading.remove wire:target="requestExplanation">
+                        @if ($aiExplanationStatus === 'available')
+                            <p class="font-medium text-emerald-800 dark:text-emerald-200">AI-generated explanation available</p>
+                            <p class="agos-muted text-sm">The wording below is assembled from approved, evidence-linked statements. Rule-based guidance remains authoritative.</p>
+                        @elseif ($aiExplanationStatus === 'not_requested')
+                            <p class="agos-muted text-sm">Deterministic fallback active. Request an optional explanation when you need clarification; no provider is contacted until then.</p>
+                        @elseif ($aiExplanationStatus === 'disabled')
+                            <p class="font-medium text-amber-800 dark:text-amber-200">AI explanation unavailable</p>
+                            <p class="agos-muted text-sm">AI explanations are disabled. The deterministic recommendations remain available.</p>
+                        @elseif ($aiFailureReason === 'invalid_response')
+                            <p class="font-medium text-amber-800 dark:text-amber-200">AI explanation rejected for safety</p>
+                            <p class="agos-muted text-sm">The provider response did not match the verified evidence contract. Deterministic fallback remains active.</p>
+                        @elseif ($aiFailureReason === 'cooldown_active' || $aiFailureReason === 'rate_limited')
+                            <p class="font-medium text-amber-800 dark:text-amber-200">AI explanation temporarily unavailable</p>
+                            <p class="agos-muted text-sm">To protect this business from repeated provider failures, try again in about a minute. Deterministic fallback remains active.</p>
+                        @else
+                            <p class="font-medium text-amber-800 dark:text-amber-200">AI explanation unavailable</p>
+                            <p class="agos-muted text-sm">The explanation service could not be reached safely. Deterministic fallback remains active; retry when ready.</p>
+                        @endif
+                    </div>
+                </section>
+            @endif
+
             @if ($report['recommendations'] === [])
                 <div class="agos-card space-y-2 p-6">
                     <flux:heading level="2">No action identified</flux:heading>
@@ -111,6 +171,7 @@ new #[Title('Action Center')] class extends Component
                 </div>
             @else
                 <p class="agos-muted text-sm">Ordered by severity, earliest relevant date, then largest supported exposure. Amounts are not promised cash benefits.</p>
+                @php($explanationsByAction = collect($aiExplanation['actions'] ?? [])->keyBy('action_id'))
                 <ol class="space-y-4" aria-label="Prioritized recommendations">
                     @foreach ($report['recommendations'] as $item)
                         <li wire:key="recommendation-{{ $item['id'] }}" class="agos-card min-w-0 space-y-4 p-5 sm:p-6" data-recommendation-rule="{{ $item['rule'] }}">
@@ -122,6 +183,9 @@ new #[Title('Action Center')] class extends Component
                                     </div>
                                     <flux:heading level="2">{{ $item['action'] }}</flux:heading>
                                     <flux:text>{{ $item['rationale'] }}</flux:text>
+                                    @if ($aiExplanationStatus === 'available' && $explanationsByAction->has($item['id']))
+                                        <p class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"><span class="font-medium">AI-generated explanation:</span> {{ $explanationsByAction->get($item['id'])['explanation'] }}</p>
+                                    @endif
                                     <p class="agos-muted text-sm">{{ isset($item['amounts']['outstanding']) ? 'Due' : 'Risk date' }} <time datetime="{{ $item['due_date'] }}">{{ $item['due_date'] }}</time>.</p>
                                 </div>
                                 <div class="min-w-0 sm:text-right">
