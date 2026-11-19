@@ -12,18 +12,22 @@ use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
 class LoyverseSyncService
 {
-    public function __construct(private LoyverseReceiptAdapter $adapter, private LoyverseReconciliation $reconciliation) {}
+    public function __construct(private LoyverseReceiptAdapter $adapter, private LoyverseReconciliation $reconciliation, private LoyverseConnectionService $connections, private LoyverseCategoryService $categories) {}
 
     public function start(User $actor, Team $team): void
     {
         DB::transaction(function () use ($actor, $team) {
             $team = Team::query()->lockForUpdate()->findOrFail($team->id);
             Gate::forUser($actor)->authorize('syncLoyverse', $team);
+            $this->categories->resolve($team);
+            $this->backfillUncategorized($team);
             $run = $team->loyverseSyncs()->latest('id')->first();
             $mapping = $this->mapping($team);
             if ($run && $run->status !== 'complete' && $run->source_mapping === $mapping) {
@@ -49,9 +53,9 @@ class LoyverseSyncService
 
     private function mapping(Team $team): string
     {
-        $connection = config("loyverse.connections.{$team->id}", []);
+        $connection = $this->connections->resolve($team);
 
-        return hash('sha256', serialize([$connection['merchant'] ?? null, $connection['store'] ?? null, $connection['collected_methods'] ?? []]));
+        return hash('sha256', serialize([$connection['merchant'] ?? null, $connection['store'] ?? null, $connection['collected_methods']]));
     }
 
     private function enqueue(LoyverseSync $run): void
@@ -76,7 +80,7 @@ class LoyverseSyncService
                 $cursor = $this->adapter->stagePage($actor, $team, $run->window_start, $run->window_end, $run->cursor,
                     function (LoyverseReceipt $receipt) use ($run, $team) {
                         abort_unless($receipt->belongsToTeam($team), 403);
-                        $result = $this->reconciliation->evaluate($receipt, config("loyverse.connections.{$team->id}.collected_methods", []));
+                        $result = $this->reconciliation->evaluate($receipt, $this->connections->resolve($team)['collected_methods']);
                         $run->entries()->updateOrCreate(['receipt_number' => $receipt->receipt_number], $result + ['reason' => null]);
                     },
                     function (LoyverseReceiptIssue $issue) use ($run) {
@@ -114,19 +118,82 @@ class LoyverseSyncService
                 if (! $run) {
                     return;
                 }
-                $failure = 'The page could not be verified. Check the store connection and retry.';
+                $reference = (string) Str::uuid();
+                [$failureCode, $failure] = $this->failureDetails($error, $reference);
+                Log::warning('Loyverse receipt sync page failed.', [
+                    'team_id' => $teamId,
+                    'sync_id' => $syncId,
+                    'attempt' => $attempt,
+                    'page' => $page,
+                    'failure_code' => $failureCode,
+                    'failure_reference' => $reference,
+                    'exception' => $error::class,
+                    'detail' => $this->safeDiagnosticDetail($error),
+                ]);
                 if ($error instanceof DomainException && $error->getMessage() === 'Invalid Loyverse continuation cursor.') {
                     $run->entries()->delete();
                     $run->fill(['cursor' => null, 'pages' => 0, 'cursor_history' => []]);
                     $failure = 'The cursor expired. Retry to replay the same update window.';
+                    $failureCode = 'invalid_cursor';
                 }
-                $run->fill(['status' => 'incomplete', 'failure' => $failure])->save();
+                $run->fill([
+                    'status' => 'incomplete', 'failure' => $failure,
+                    'failure_code' => $failureCode, 'failure_reference' => $reference,
+                ])->save();
             });
         }
     }
 
+    /** @return array{0: string, 1: string} */
+    private function failureDetails(Throwable $error, string $reference): array
+    {
+        $message = $error->getMessage();
+        if ($error instanceof DomainException && $message === 'Invalid Loyverse continuation cursor.') {
+            return ['invalid_cursor', 'The Loyverse continuation cursor expired. Retry to replay the same receipt window.'];
+        }
+        if (str_contains($message, 'HTTP 401') || str_contains($message, 'HTTP 403')) {
+            return ['provider_access', 'Loyverse rejected the access token or its receipt permissions. Reconnect the store and retry.'];
+        }
+        if (str_contains($message, 'HTTP 400')) {
+            preg_match('/HTTP 400(?:,\s*([A-Z_]+))?/', $message, $matches);
+            $providerCode = $matches[1] ?? null;
+            $status = $providerCode ? 'HTTP 400, '.$providerCode : 'HTTP 400';
+
+            return ['provider_request', "Loyverse rejected the receipt request ({$status}). Reconnect the store and retry."];
+        }
+        if (str_contains($message, 'HTTP 404') || str_contains($message, 'different store')) {
+            return ['invalid_store', 'The selected Loyverse store could not be verified. Reconnect and choose the store again.'];
+        }
+        if (preg_match('/HTTP 5(?:00|02|03)/', $message) === 1) {
+            return ['provider_unavailable', 'Loyverse is temporarily unavailable. Wait a moment and retry.'];
+        }
+        if (str_contains($message, 'HTTP 429')) {
+            return ['rate_limited', 'Loyverse temporarily rate-limited the request. Wait a moment and retry.'];
+        }
+        if (str_contains($message, 'could not be reached')) {
+            return ['provider_unavailable', 'Loyverse could not be reached. Check the connection and retry.'];
+        }
+        if (str_contains($message, 'Invalid Loyverse') || str_contains($message, 'receipt page') || str_contains($message, 'required peso amount') || str_contains($message, 'effective date')) {
+            return ['invalid_receipt', 'Loyverse returned receipt data AGOS could not validate. No financial records were changed; review the store data and retry.'];
+        }
+        if (str_contains($message, 'source mapping changed')) {
+            return ['configuration_changed', 'The Loyverse connection changed during synchronization. Retry the sync with the current store connection.'];
+        }
+
+        return ['unexpected', 'The Loyverse sync encountered an unexpected verification error. No financial records were changed. Reference: '.$reference];
+    }
+
+    private function safeDiagnosticDetail(Throwable $error): string
+    {
+        $message = preg_replace('/Bearer\s+[^\s]+/i', 'Bearer [redacted]', $error->getMessage()) ?? '';
+        $message = preg_replace('/[\r\n\t]+/', ' ', $message) ?? '';
+
+        return mb_substr(trim($message), 0, 300);
+    }
+
     private function publish(LoyverseSync $run, Team $team): void
     {
+        $categories = $this->categories->resolve($team);
         foreach ($run->entries()->lazyById() as $entry) {
             if ($entry->receipt_number === null) {
                 continue;
@@ -137,6 +204,7 @@ class LoyverseSyncService
                 $key = hash('sha256', $entry->receipt_number.':'.$index);
                 $record = (clone $existing)->withTrashed()->firstOrNew(['external_id' => $key]);
                 $record->fill($movement + [
+                    'category_id' => $categories[$movement['direction']]->id,
                     'source_type' => 'loyverse', 'source_reference' => $entry->receipt_number,
                     'description' => 'Loyverse receipt '.$entry->receipt_number,
                     'transaction_date' => $entry->business_date, 'currency_code' => 'PHP', 'recorded_by' => $run->user_id,
@@ -146,6 +214,18 @@ class LoyverseSyncService
                 $keep[] = $key;
             }
             $existing->whereNotIn('external_id', $keep)->delete();
+        }
+    }
+
+    private function backfillUncategorized(Team $team): void
+    {
+        $categories = $this->categories->resolve($team);
+        foreach (['income', 'expense'] as $direction) {
+            $team->transactions()
+                ->where('source_type', 'loyverse')
+                ->where('direction', $direction)
+                ->whereNull('category_id')
+                ->update(['category_id' => $categories[$direction]->id]);
         }
     }
 }

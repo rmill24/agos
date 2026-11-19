@@ -3,6 +3,7 @@
 use App\Enums\TeamRole;
 use App\Models\LoyverseReceipt;
 use App\Services\LoyverseReceiptAdapter;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,14 +46,42 @@ it('stages precise financial evidence and replays revisions without publishing c
     Http::assertSent(function (Request $request) use ($from, $until) {
         parse_str(parse_url($request->url(), PHP_URL_QUERY) ?? '', $params);
 
-        return $request->method() === 'GET' && $request->hasHeader('Authorization', 'Bearer fixture-token')
-            && $params === ['store_id' => 'store-a', 'updated_at_min' => $from->toISOString(), 'updated_at_max' => $until->toISOString(), 'cursor' => 'page two'];
+        return $request->method() === 'GET' && str_ends_with(parse_url($request->url(), PHP_URL_PATH) ?? '', '/receipts')
+            && $request->hasHeader('Authorization', 'Bearer fixture-token')
+            && isset($params['store_id'], $params['updated_at_min'], $params['updated_at_max'], $params['cursor'])
+            && $params['store_id'] === 'store-a'
+            && $params['updated_at_min'] === $from->utc()->format('Y-m-d\TH:i:s.v\Z')
+            && $params['updated_at_max'] === $until->utc()->format('Y-m-d\TH:i:s.v\Z')
+            && $params['cursor'] === 'page two';
     });
     $this->adapter->stageReceipt($this->owner, $this->business, '1-1');
     $this->adapter->stageReceipt($this->owner, $this->business, '1-1');
     expect($this->business->loyverseReceipts()->sole()->receipt)->toHaveKey('cancelled_at')
         ->and($this->business->transactions()->count())->toBe(0);
     expect(fn () => $record->replicate()->save())->toThrow(QueryException::class);
+});
+
+it('omits the artificial epoch lower bound on the first receipt sync', function () {
+    Http::fake([
+        "$this->base/merchant/" => Http::response($this->merchant),
+        "$this->base/receipts?*" => Http::response(['receipts' => []]),
+    ]);
+
+    $this->adapter->stagePage(
+        $this->owner,
+        $this->business,
+        CarbonImmutable::createFromTimestampUTC(0),
+        now(),
+    );
+
+    Http::assertSent(function (Request $request): bool {
+        parse_str(parse_url($request->url(), PHP_URL_QUERY) ?? '', $params);
+
+        return isset($params['store_id'])
+            && ! array_key_exists('updated_at_min', $params)
+            && $params['store_id'] === 'store-a'
+            && isset($params['updated_at_max']);
+    });
 });
 
 it('requires an onboarded owner on direct adapter calls', function () {

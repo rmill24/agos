@@ -2,6 +2,7 @@
 
 use App\Enums\TeamRole;
 use App\Jobs\SyncLoyversePage;
+use App\Models\Transaction;
 use App\Services\LoyverseSyncService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,6 +45,7 @@ it('publishes only a completed window and resumes after an outage without duplic
     expect($first->fresh()->status)->toBe('complete');
     $payment = $this->team->transactions()->sole();
     expect($payment->amount)->toBe('12.34')->and($payment->transaction_date->toDateString())->toBe('2026-10-10')
+        ->and($payment->category->name)->toBe('Income')
         ->and($this->owner->can('update', $payment))->toBeFalse();
     $component->call('sync')->call('sync');
     $second = $this->team->loyverseSyncs()->latest('id')->first();
@@ -133,6 +135,54 @@ it('replays an expired cursor in the original window', function () {
     $this->service->start($this->owner, $this->team);
     $this->service->process($this->team->id, $run->id, 2, 0);
     expect($run->fresh()->window_start->equalTo($run->window_start))->toBeTrue()->and($this->team->transactions()->count())->toBe(1);
+});
+
+it('treats a null final cursor as a completed page', function () {
+    $this->sequence->push(['receipts' => [$this->receipt], 'cursor' => null]);
+    $this->service->start($this->owner, $this->team);
+    $run = $this->team->loyverseSyncs()->sole();
+
+    $this->service->process($this->team->id, $run->id, 1, 0);
+
+    expect($run->fresh()->status)->toBe('complete')
+        ->and($this->team->transactions()->sole()->amount)->toBe('12.34');
+});
+
+it('backfills existing uncategorized Loyverse movements when syncing', function () {
+    $movement = Transaction::factory()->create([
+        'team_id' => $this->team->id, 'source_type' => 'loyverse', 'category_id' => null, 'direction' => 'income',
+    ]);
+    $this->sequence->push(['receipts' => []]);
+
+    $this->service->start($this->owner, $this->team);
+    $run = $this->team->loyverseSyncs()->sole();
+    $this->service->process($this->team->id, $run->id, 1, 0);
+
+    expect($movement->fresh()->category->name)->toBe('Income');
+});
+
+it('persists a safe provider diagnostic when a receipt page is rejected', function () {
+    $this->sequence->push(['errors' => [['code' => 'FORBIDDEN']]], 403);
+    $this->service->start($this->owner, $this->team);
+    $run = $this->team->loyverseSyncs()->sole();
+
+    $this->service->process($this->team->id, $run->id, 1, 0);
+
+    expect($run->fresh()->failure)->toBe('Loyverse rejected the access token or its receipt permissions. Reconnect the store and retry.')
+        ->and($run->fresh()->failure_code)->toBe('provider_access')
+        ->and($run->fresh()->failure_reference)->not->toBeNull()
+        ->and($this->team->transactions()->count())->toBe(0);
+});
+
+it('classifies a rejected receipt request separately from access failures', function () {
+    $this->sequence->push(['errors' => [['code' => 'INVALID_RANGE', 'details' => 'The time range is invalid.']]], 400);
+    $this->service->start($this->owner, $this->team);
+    $run = $this->team->loyverseSyncs()->sole();
+
+    $this->service->process($this->team->id, $run->id, 1, 0);
+
+    expect($run->fresh()->failure_code)->toBe('provider_request')
+        ->and($run->fresh()->failure)->toContain('HTTP 400, INVALID_RANGE');
 });
 
 it('checks onboarding and team ownership on the route, action and worker', function () {

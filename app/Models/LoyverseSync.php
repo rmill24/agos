@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $window_end
  * @property CarbonImmutable|null $completed_at
  * @property list<string>|null $cursor_history
+ * @property string|null $failure_code
+ * @property string|null $failure_reference
  */
 class LoyverseSync extends Model
 {

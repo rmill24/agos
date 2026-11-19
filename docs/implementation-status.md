@@ -1,5 +1,19 @@
 # AGOS implementation status
 
+## P3-T05 — Loyverse connection settings — 19 November 2026
+
+**Verified.** Business Owners can connect a Team by entering one Loyverse access token; AGOS loads the merchant, stores, and payment types server-side and presents labeled selections instead of requiring provider IDs. Connections can be saved and cleared from the Loyverse sync page. Access tokens are encrypted in the database, masked in the UI, excluded from audit metadata, and existing `.env` connections remain a fallback. The read-only adapter verifies the merchant and PHP currency and loads metadata without importing receipts. The sync service resolves database connections first and preserves existing quarantine, checkpoint, and duplicate-protection behavior.
+
+The sync path now accepts a null final pagination cursor, probes receipt access for the selected store before saving a new connection, and records safe actionable failure messages for token, permission, store, rate-limit, timeout, and malformed-page errors. The focused Loyverse suite passed 28 tests and 136 assertions; the full suite passed 171 tests with 709 assertions and two PostgreSQL-only skips. PHPStan, Pint, the production build, and `git diff --check` passed.
+
+**Diagnostic follow-up verified.** Failed pages now persist a failure code and UUID reference, and write safe worker metadata to the application log without tokens or receipt payloads. Existing failed runs retain their previous message; retrying them uses the new diagnostics. Migration `2026_11_19_000004_add_failure_diagnostics_to_loyverse_syncs` is applied. The full suite now passes 171 tests with 711 assertions.
+
+The diagnostic pass now records a sanitized exception detail, classifies HTTP 400 request errors separately from access failures, and displays the diagnostic code/reference in the sync status. The final verification passed 172 tests with 713 assertions, two PostgreSQL-only skips, PHPStan, Pint, the production build, and `git diff --check`.
+
+**First-sync 400 follow-up verified.** A first receipt sync no longer sends the artificial Unix-epoch `updated_at_min` lower bound that Loyverse can reject as an invalid range; incremental syncs continue to send their real lower bound. Provider error codes and short details are included in sanitized diagnostics, so a rejected request now identifies errors such as `INVALID_RANGE`. The focused Loyverse suite passed 25 tests with 122 assertions, and the full suite passed 173 tests with 714 assertions and two PostgreSQL-only skips. PHPStan, Pint, the production build, and `git diff --check` passed.
+
+The focused Loyverse suite passed 26 tests and 131 assertions. The full suite passed 169 tests with 704 assertions and two PostgreSQL-only skips. Pint, PHPStan, migration status, `git diff --check`, and the production asset build passed. Migration `2026_11_19_000003_create_loyverse_connections` is applied to the configured local database.
+
 ## Cash dashboard — P4-T02 partial
 
 The business dashboard shows month-to-date ledger income, expenses, net movement and the five most recent movements through today's Manila date. It also links to the three highest-priority invoice or bill recommendations and shows Loyverse freshness. Personal workspaces retain setup and invitation access. P4-T01 remains the dependency for absolute cash, projected balances and shortfall dates.

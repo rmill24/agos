@@ -21,10 +21,12 @@ use stdClass;
 /**
  * Stages source evidence. Only a reconciled, complete sync may publish cash.
  *
- * @phpstan-type Connection array{token: string, merchant: string, store: string}
+ * @phpstan-type Connection array{token: string, merchant: string, store: string, collected_methods?: list<string>}
  */
 class LoyverseReceiptAdapter
 {
+    public function __construct(private LoyverseConnectionService $connections) {}
+
     /**
      * @param  (Closure(LoyverseReceipt): void)|null  $accepted
      * @param  (Closure(LoyverseReceiptIssue): void)|null  $rejected
@@ -36,23 +38,33 @@ class LoyverseReceiptAdapter
             throw new \InvalidArgumentException('The update window must end after its start.');
         }
         $currency = $this->currency($connection);
-        $page = $this->get($connection, '/receipts', array_filter([
+        $query = [
             'store_id' => $connection['store'],
-            'updated_at_min' => CarbonImmutable::instance($from)->utc()->toISOString(),
-            'updated_at_max' => CarbonImmutable::instance($until)->utc()->toISOString(),
-            'cursor' => $cursor,
-        ], fn ($value) => $value !== null));
+            'updated_at_max' => $this->providerTimestamp($until),
+        ];
+        if (CarbonImmutable::instance($from)->getTimestamp() > 0) {
+            $query['updated_at_min'] = $this->providerTimestamp($from);
+        }
+        if ($cursor !== null) {
+            $query['cursor'] = $cursor;
+        }
+        $page = $this->get($connection, '/receipts', $query);
 
         $rows = $page->receipts ?? null;
         if (! is_array($rows) || ! array_is_list($rows)) {
             throw new RuntimeException('Invalid Loyverse receipts page.');
         }
-        if (property_exists($page, 'cursor') && (! is_string($page->cursor) || $page->cursor === '' || $page->cursor === $cursor)) {
+        if (property_exists($page, 'cursor') && $page->cursor !== null && (! is_string($page->cursor) || $page->cursor === '' || $page->cursor === $cursor)) {
             throw new DomainException('Invalid Loyverse continuation cursor.');
         }
         $this->stage($actor, $team, $connection, $currency, $rows, $accepted, $rejected);
 
         return $page->cursor ?? null;
+    }
+
+    private function providerTimestamp(DateTimeInterface $timestamp): string
+    {
+        return CarbonImmutable::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
     public function stageReceipt(User $actor, Team $team, string $number): void
@@ -73,7 +85,7 @@ class LoyverseReceiptAdapter
     private function connection(User $actor, Team $team): array
     {
         $this->authorize($actor, $team->fresh() ?? abort(404));
-        $connection = config("loyverse.connections.{$team->id}");
+        $connection = $this->connections->resolve($team);
         foreach (['merchant', 'store', 'token'] as $field) {
             if (! is_string($connection[$field] ?? null) || trim($connection[$field]) === '') {
                 throw new RuntimeException('The business Loyverse connection is incomplete.');
@@ -81,6 +93,131 @@ class LoyverseReceiptAdapter
         }
 
         return $connection;
+    }
+
+    /** @param array<string, mixed>|null $override */
+    public function verify(User $actor, Team $team, ?array $override = null): string
+    {
+        $this->authorize($actor, $team->fresh() ?? abort(404));
+        $connection = $override
+            ? $this->connections->normalize($override, $this->connections->resolve($team)['token'] ?? null)
+            : $this->connection($actor, $team);
+
+        foreach (['merchant', 'store', 'token'] as $field) {
+            if (trim($connection[$field]) === '') {
+                throw new RuntimeException('The business Loyverse connection is incomplete.');
+            }
+        }
+
+        $currency = $this->currency($connection);
+        if ($currency === null) {
+            throw new RuntimeException('Merchant currency could not be verified as PHP.');
+        }
+
+        return $currency;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $override
+     * @return array{merchant: array{id: string, name: string, currency: string}, stores: list<array{id: string, name: string}>, payment_types: list<array{id: string, name: string, type: string, stores: list<string>}>}
+     */
+    public function metadata(User $actor, Team $team, ?array $override = null): array
+    {
+        $this->authorize($actor, $team->fresh() ?? abort(404));
+        $resolved = $override
+            ? $this->connections->normalize($override, $this->connections->resolve($team)['token'] ?? null)
+            : $this->connection($actor, $team);
+        if ($resolved['token'] === '') {
+            throw new RuntimeException('The business Loyverse access token is required.');
+        }
+        $connection = [
+            'token' => $resolved['token'],
+            'merchant' => $resolved['merchant'],
+            'store' => $resolved['store'],
+        ];
+        $merchant = $this->get($connection, '/merchant/');
+        $currency = $merchant->currency->code ?? null;
+        $merchantId = $merchant->id ?? null;
+        if (! is_string($merchantId) || ($connection['merchant'] !== '' && $merchantId !== $connection['merchant'])) {
+            throw new RuntimeException('Cannot verify the mapped Loyverse merchant.');
+        }
+        if (! is_string($currency) || $currency !== 'PHP') {
+            throw new RuntimeException('Loyverse merchant currency must be PHP.');
+        }
+
+        $stores = $this->metadataRows($this->get($connection, '/stores')->stores ?? null, 'stores');
+        $paymentTypes = $this->metadataRows($this->get($connection, '/payment_types')->payment_types ?? null, 'payment types');
+        if ($stores === []) {
+            throw new RuntimeException('No Loyverse stores were found for this account.');
+        }
+        if ($paymentTypes === []) {
+            throw new RuntimeException('No Loyverse payment types were found for this account.');
+        }
+
+        return [
+            'merchant' => [
+                'id' => $merchantId,
+                'name' => is_string($merchant->business_name ?? null) ? $merchant->business_name : $merchantId,
+                'currency' => $currency,
+            ],
+            'stores' => array_map(static fn (array $row): array => [
+                'id' => $row['id'], 'name' => $row['name'],
+            ], $stores),
+            'payment_types' => array_map(static fn (array $row): array => [
+                'id' => $row['id'], 'name' => $row['name'],
+                'type' => is_string($row['type'] ?? null) ? $row['type'] : 'OTHER',
+                'stores' => is_array($row['stores'] ?? null) ? array_values(array_filter($row['stores'], 'is_string')) : [],
+            ], $paymentTypes),
+        ];
+    }
+
+    /** @param array<string, mixed>|null $override */
+    public function probeReceiptAccess(User $actor, Team $team, string $storeId, ?array $override = null): void
+    {
+        $this->authorize($actor, $team->fresh() ?? abort(404));
+        $resolved = $override
+            ? $this->connections->normalize($override, $this->connections->resolve($team)['token'] ?? null)
+            : $this->connection($actor, $team);
+        if ($resolved['token'] === '' || $storeId === '') {
+            throw new RuntimeException('A Loyverse access token and store are required.');
+        }
+        $connection = [
+            'token' => $resolved['token'], 'merchant' => $resolved['merchant'], 'store' => $storeId,
+        ];
+        $page = $this->get($connection, '/receipts', ['store_id' => $storeId, 'limit' => '1']);
+        $rows = $page->receipts ?? null;
+        if (! is_array($rows) || ! array_is_list($rows)) {
+            throw new RuntimeException('Loyverse returned an invalid receipt page for this store.');
+        }
+        foreach ($rows as $row) {
+            if ($row instanceof stdClass && isset($row->store_id) && $row->store_id !== $storeId) {
+                throw new RuntimeException('Loyverse returned receipts for a different store.');
+            }
+        }
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function metadataRows(mixed $rows, string $resource): array
+    {
+        if (! is_array($rows) || ! array_is_list($rows)) {
+            throw new RuntimeException("Loyverse returned invalid {$resource} metadata.");
+        }
+
+        $result = [];
+        foreach ($rows as $row) {
+            $row = $row instanceof stdClass ? get_object_vars($row) : [];
+            if (! is_string($row['id'] ?? null) || trim($row['id']) === '') {
+                throw new RuntimeException("Loyverse returned an invalid {$resource} identifier.");
+            }
+            $result[] = [
+                'id' => $row['id'],
+                'name' => is_string($row['name'] ?? null) && trim($row['name']) !== '' ? $row['name'] : $row['id'],
+                'type' => $row['type'] ?? null,
+                'stores' => $row['stores'] ?? [],
+            ];
+        }
+
+        return $result;
     }
 
     private function authorize(User $actor, Team $team): void
@@ -117,7 +254,13 @@ class LoyverseReceiptAdapter
             throw new DomainException('Invalid Loyverse continuation cursor.');
         }
         if (! $response->successful()) {
-            throw new RuntimeException('Loyverse request failed (HTTP '.$response->status().').');
+            $code = $response->json('errors.0.code');
+            $detail = $response->json('errors.0.details');
+            $suffix = is_string($code) && $code !== '' ? ', '.$code : '';
+            if (is_string($detail) && $detail !== '') {
+                $suffix .= ': '.preg_replace('/[\r\n\t]+/', ' ', mb_substr($detail, 0, 160));
+            }
+            throw new RuntimeException('Loyverse request failed (HTTP '.$response->status().$suffix.').');
         }
         $body = $response->body();
         if (! json_validate($body) || ! str_starts_with(ltrim($body), '{')) {
