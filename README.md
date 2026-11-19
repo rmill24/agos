@@ -132,6 +132,27 @@ php artisan migrate:status
 
 If migrations fail, check the database connection and migration error before retrying. Do not drop or recreate the database to hide a migration problem.
 
+## Local demonstration data
+
+To reset a local database and load the AGOS Coffee House demonstration data, run:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+This creates the **AGOS Coffee House** business, 20 customers, 5 suppliers,
+125 receivables/payables, and 75 current-month cash movements. It is intended
+only for a fresh local database. The demo accounts use the password `password`:
+
+| Role | Email |
+| --- | --- |
+| Business Owner (Jane Doe) | `jane.doe@agos-coffee.test` |
+| Manager | `miguel.santos@agos-coffee.test` |
+| Bookkeeper / Finance Staff | `aira.cruz@agos-coffee.test` |
+| System Administrator | `paolo.reyes@agos-coffee.test` |
+
+The System Administrator is intentionally not a member of the business Team.
+
 ## Run AGOS locally
 
 Start the application:
