@@ -18,6 +18,9 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard', ['current_team' => auth()->user()->currentTeam?->slug])" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    @can('runScenarios', auth()->user()->currentTeam)
+                        <flux:sidebar.item icon="beaker" :href="route('scenarios.index', auth()->user()->currentTeam)" :current="request()->routeIs('scenarios.index')" wire:navigate>Scenario Simulator</flux:sidebar.item>
+                    @endcan
                     @can('viewRecommendations', auth()->user()->currentTeam)
                         <flux:sidebar.item icon="clipboard-document-list" :href="route('recommendations.index', auth()->user()->currentTeam)" :current="request()->routeIs('recommendations.index')" wire:navigate>Action Center</flux:sidebar.item>
                     @endcan

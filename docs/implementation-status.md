@@ -1,5 +1,31 @@
 # AGOS implementation status
 
+## P4-T03 — Isolated scenario simulation — 19 November 2026
+
+**Verified.** Owner and Manager users can run transient, Team-scoped scenarios
+for customer payment delays, sales reductions, expense increases, supplier
+payment delays, customer deposits, and proposed purchases. `ScenarioService`
+validates decimal amounts, dates, forecast periods, delays, obligation
+ownership, and scenario-specific inputs before delegating forecast calculation
+to `CashFlowService`. Hypothetical inputs and results remain separate from
+actual transactions, invoices, bills, and payments; no scenario execution
+writes financial records. Bookkeepers, System Administrators, incomplete
+businesses, and cross-Team records are denied independently at the route,
+Livewire, policy, and service boundaries.
+
+The Scenario Simulator Livewire page includes validation, loading, empty,
+failure, hypothetical-only, and limitation states using the AGOS shell. It
+explicitly reports when percentage sales reduction has no confirmed future
+sales basis or when a hypothetical event falls outside the selected period.
+Scenarios are intentionally not persisted in P4-T03; revisitable saved
+scenario records remain a later optional requirement and no P4-T04 comparison
+or affordability recommendations were added.
+
+The full suite passed 191 tests with 777 assertions and two expected
+PostgreSQL-only skips. Pint, PHPStan, migration status, the Vite production
+build, and `git diff --check` passed. The next task is P4-T04, which requires
+approval before implementation.
+
 ## P4-T02 — Dashboard summaries and accessible forecast chart — 19 November 2026
 
 **Verified.** The authenticated business dashboard now consumes the authorized

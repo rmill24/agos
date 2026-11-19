@@ -40,6 +40,9 @@ Route::prefix('{current_team}')
         Route::livewire('loyverse', 'pages::loyverse.index')
             ->middleware([EnsureBusinessOnboarding::class, 'can:syncLoyverse,current_team'])
             ->name('loyverse.index');
+        Route::livewire('scenarios', 'pages::scenarios.index')
+            ->middleware([EnsureBusinessOnboarding::class, 'can:runScenarios,current_team'])
+            ->name('scenarios.index');
         Route::livewire('action-center', 'pages::recommendations.index')
             ->middleware([EnsureBusinessOnboarding::class, 'can:viewRecommendations,current_team'])
             ->name('recommendations.index');

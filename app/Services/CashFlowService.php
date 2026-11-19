@@ -19,7 +19,12 @@ class CashFlowService
      *
      * @return array<string, mixed>
      */
-    public function forTeam(User $actor, Team $team, ?string $openingBalance = null, ?CarbonImmutable $asOf = null, int $days = 30): array
+    /**
+     * @param  array<int, array{date: string, amount: string, direction: string, classification: string, description: string}>  $hypotheticalItems
+     * @param  array<int|string, string>  $obligationDateOverrides
+     * @return array<string, mixed>
+     */
+    public function forTeam(User $actor, Team $team, ?string $openingBalance = null, ?CarbonImmutable $asOf = null, int $days = 30, array $hypotheticalItems = [], array $obligationDateOverrides = []): array
     {
         $team = $team->fresh() ?? abort(404);
         Gate::forUser($actor)->authorize('viewDashboard', $team);
@@ -68,18 +73,36 @@ class CashFlowService
         $obligations = Obligation::query()->where('team_id', $team->id)->with('payments.transaction')->get();
         foreach ($obligations as $obligation) {
             $balance = $obligation->balance();
-            if (! $balance->isPositive() || $obligation->due_date < $asOf->toDateString() || $obligation->due_date > $end->toDateString()) {
+            $dueDate = $obligationDateOverrides[$obligation->id] ?? (string) $obligation->due_date;
+            if (! $balance->isPositive() || $dueDate < $asOf->toDateString() || $dueDate > $end->toDateString()) {
                 continue;
             }
             $isInvoice = $obligation->kind === 'invoice';
             $futureItems[] = $this->item(
-                (string) $obligation->due_date,
+                $dueDate,
                 $balance,
                 $isInvoice ? 'uncertain_collection' : 'expected_outflow',
                 $isInvoice ? 'invoice' : 'bill',
                 $obligation->id,
                 $obligation->number ?: $obligation->description
             );
+        }
+
+        foreach ($hypotheticalItems as $item) {
+            $date = $item['date'];
+            if ($date <= $asOf->toDateString() || $date > $end->toDateString()) {
+                continue;
+            }
+            $futureItems[] = [
+                'date' => $date,
+                'amount' => $this->money(BigDecimal::of((string) $item['amount'])),
+                'direction' => $item['direction'],
+                'classification' => $item['classification'],
+                'sourceType' => 'scenario',
+                'sourceId' => null,
+                'description' => $item['description'],
+                'hypothetical' => true,
+            ];
         }
 
         $confirmedMovement = $inflow->minus($outflow);
@@ -113,6 +136,7 @@ class CashFlowService
             $expectedOutflow = $zero;
             $uncertainInflow = $zero;
             $optionalOutflow = $zero;
+            $optionalInflow = $zero;
             foreach ($dayItems as $item) {
                 $amount = BigDecimal::of($item['amount']);
                 if ($item['classification'] === 'confirmed_inflow') {
@@ -127,6 +151,8 @@ class CashFlowService
                     $uncertainInflow = $uncertainInflow->plus($amount);
                 } elseif ($item['classification'] === 'optional_outflow') {
                     $optionalOutflow = $optionalOutflow->plus($amount);
+                } elseif ($item['classification'] === 'optional_inflow') {
+                    $optionalInflow = $optionalInflow->plus($amount);
                 }
                 $dayNet = $item['direction'] === 'inflow' ? $dayNet->plus($amount) : $dayNet->minus($amount);
             }
@@ -155,6 +181,7 @@ class CashFlowService
                 'expectedOutflow' => $this->money($expectedOutflow),
                 'uncertainInflow' => $this->money($uncertainInflow),
                 'optionalOutflow' => $this->money($optionalOutflow),
+                'optionalInflow' => $this->money($optionalInflow),
                 'items' => $dayItems,
             ];
         }

@@ -32,6 +32,11 @@ class TeamPolicy
         return $this->hasFinancialPermission($user, $team, TeamPermission::ViewRecommendations);
     }
 
+    public function runScenarios(User $user, Team $team): bool
+    {
+        return $this->hasFinancialPermission($user, $team, TeamPermission::RunScenarios);
+    }
+
     private function hasFinancialPermission(User $user, Team $team, TeamPermission $permission): bool
     {
         return ! $user->isSystemAdministrator() && ! $team->is_personal
