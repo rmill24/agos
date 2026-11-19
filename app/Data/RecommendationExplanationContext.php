@@ -9,6 +9,8 @@ use Illuminate\Support\Arr;
 
 final readonly class RecommendationExplanationContext
 {
+    public const int MAX_ACTIONS = 10;
+
     /**
      * Only the authorized factory can mint a provider context. Never accept
      * caller-provided records, evidence or financial snapshots at this boundary.
@@ -22,10 +24,13 @@ final readonly class RecommendationExplanationContext
     {
         // RecommendationService reloads the actor and Team and authorizes every read.
         $report = $recommendations->forTeam($actor, $team, $days);
+        // Preserve the service's deterministic priority order, but bound the
+        // optional external explanation context. The full report stays local.
+        $selectedCandidates = array_slice($report['recommendations'], 0, self::MAX_ACTIONS);
         $actions = [];
         $evidence = [];
         $limitations = $report['limitations'];
-        foreach ($report['recommendations'] as $candidate) {
+        foreach ($selectedCandidates as $candidate) {
             $action = Arr::only($candidate, ['id', 'rule', 'action', 'priority', 'rationale', 'amount', 'amounts', 'due_date', 'dates', 'evidence_references']);
             $action['explanation_choices'] = [
                 'why_this_action' => $candidate['rationale'],
@@ -58,6 +63,11 @@ final readonly class RecommendationExplanationContext
             'currency' => $report['currency'], 'history_complete' => $report['history_complete'],
             'freshness' => $report['freshness'], 'actions' => $actions,
             'evidence' => $evidence, 'limitations' => $limitationMap,
+            'scope' => [
+                'selected_action_count' => count($actions),
+                'total_action_count' => count($report['recommendations']),
+                'is_limited' => count($actions) < count($report['recommendations']),
+            ],
         ];
         $payload['snapshot_id'] = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
 
@@ -74,5 +84,11 @@ final readonly class RecommendationExplanationContext
     public function limitations(): array
     {
         return $this->payload['limitations'];
+    }
+
+    /** @return array{selected_action_count: int, total_action_count: int, is_limited: bool} */
+    public function scope(): array
+    {
+        return $this->payload['scope'];
     }
 }

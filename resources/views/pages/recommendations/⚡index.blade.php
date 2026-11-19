@@ -27,6 +27,10 @@ new #[Title('Action Center')] class extends Component
     #[Locked]
     public ?string $aiFailureReason = null;
 
+    /** @var array{selected_action_count: int, total_action_count: int, is_limited: bool}|null */
+    #[Locked]
+    public ?array $aiExplanationScope = null;
+
     public function mount(Team $current_team): void
     {
         $this->team = $current_team;
@@ -47,6 +51,7 @@ new #[Title('Action Center')] class extends Component
         $this->aiExplanation = null;
         $this->aiExplanationStatus = 'not_requested';
         $this->aiFailureReason = null;
+        $this->aiExplanationScope = null;
     }
 
     public function requestExplanation(RecommendationExplanationService $service): void
@@ -56,6 +61,7 @@ new #[Title('Action Center')] class extends Component
         $this->aiExplanation = $result['explanation'];
         $this->aiExplanationStatus = $result['explanation_status'];
         $this->aiFailureReason = $result['failure_reason'];
+        $this->aiExplanationScope = $result['explanation_scope'];
     }
 
     public function with(RecommendationService $service): array
@@ -144,6 +150,9 @@ new #[Title('Action Center')] class extends Component
                         @if ($aiExplanationStatus === 'available')
                             <p class="font-medium text-emerald-800 dark:text-emerald-200">AI-generated explanation available</p>
                             <p class="agos-muted text-sm">The wording below is assembled from approved, evidence-linked statements. Rule-based guidance remains authoritative.</p>
+                            @if ($aiExplanationScope !== null && $aiExplanationScope['is_limited'])
+                                <p class="agos-muted text-sm">AI explanation covers the highest-priority {{ $aiExplanationScope['selected_action_count'] }} of {{ $aiExplanationScope['total_action_count'] }} recommendations. All remaining cards continue to show deterministic guidance.</p>
+                            @endif
                         @elseif ($aiExplanationStatus === 'not_requested')
                             <p class="agos-muted text-sm">Deterministic fallback active. Request an optional explanation when you need clarification; no provider is contacted until then.</p>
                         @elseif ($aiExplanationStatus === 'disabled')

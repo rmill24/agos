@@ -90,6 +90,32 @@ it('renders an optional validated AI explanation without changing deterministic 
     Http::fake();
 });
 
+it('discloses when AI explains only the highest-priority bounded subset', function () {
+    [$actor, $team] = p2Business();
+    for ($index = 1; $index <= 11; $index++) {
+        actionCenterDocument($team, 'invoice', '100.01', '2026-11-19', 'AI-SUBSET-'.$index);
+    }
+    config(['ai.enabled' => true, 'ai.provider' => 'groq', 'ai.groq.api_key' => 'synthetic-test-credential', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+    Http::fake(function (Request $request) {
+        $input = json_decode($request['messages'][1]['content'], true, 32, JSON_THROW_ON_ERROR);
+        $plan = [
+            'schema_version' => '1', 'snapshot_id' => $input['snapshot_id'],
+            'summary_action_ids' => [$input['actions'][0]['id']],
+            'actions' => array_map(fn (array $action) => [
+                'action_id' => $action['id'], 'explanation_codes' => ['why_this_action'],
+                'evidence_references' => $action['evidence_references'],
+            ], $input['actions']),
+            'limitation_ids' => array_keys($input['limitations']),
+        ];
+
+        return Http::response(['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($plan, JSON_THROW_ON_ERROR)]]]]);
+    });
+    Livewire::actingAs($actor)->test('pages::recommendations.index', ['current_team' => $team])
+        ->call('requestExplanation')->assertSee('AI explanation covers the highest-priority 10 of 11 recommendations.')
+        ->assertSee('AI-SUBSET-11')->assertSee('AI-generated explanation available');
+    Http::fake();
+});
+
 it('keeps deterministic guidance visible when an AI response is rejected and reauthorizes AI requests', function () {
     [$actor, $team] = p2Business();
     actionCenterDocument($team, 'invoice', '100.01', '2026-11-19', 'AI-REJECTED');

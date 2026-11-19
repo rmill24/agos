@@ -1,5 +1,43 @@
 # AGOS implementation status
 
+## P5 follow-up - Groq strict-schema compatibility - 20 November 2026
+
+Replaced Groq JSON Object mode with GPT-OSS 20B's strict JSON Schema mode in
+`GroqExplanationProvider`. The provider now constrains the existing explanation
+plan envelope to its five approved root fields, closes both root and action
+objects to additional fields, and limits schema version, snapshot ID, action
+IDs, evidence references, explanation codes and limitation IDs to the current
+authorized input. `ExplanationResponseValidator` remains authoritative for
+exact per-action evidence mappings, completeness and Team-scoped evidence
+validation.
+
+This fixes intermittent Groq `json_validate_failed` HTTP 400 responses from
+best-effort JSON Object mode without weakening deterministic recommendations,
+provider minimization, timeout/fallback behavior or backend validation. The
+live synthetic strict-schema smoke request returned HTTP 200 with content using
+the configured Groq model and credential; it sent no business data and did not
+print credentials or response content. Automated tests continue to use HTTP
+fakes only.
+
+Changed: `app/Integrations/Ai/GroqExplanationProvider.php`,
+`tests/Feature/Financial/AiExplanationTest.php`, and this handoff. No route,
+migration, financial rule, Team authorization rule or external financial record
+changed.
+
+Verification: full default SQLite suite **291 passed, 1,310 assertions, two
+expected PostgreSQL-only skips** (293 tests total). Pint `--test`, PHPStan
+(zero errors), Vite build, all configured PostgreSQL migration statuses and
+`git diff --check` passed. Vite retains its existing optional `fontaine`
+notice.
+
+Follow-up diagnosis found a Team with 93 supported deterministic actions, which
+exceeded the former external-context cap. The context now sends only the first
+ten actions in the already-verified deterministic priority order, with only
+their authorized evidence and limitations. The Action Center keeps all cards
+and explicitly states when AI covers a subset. A user-approved live diagnostic
+validated the bounded plan for **10 of 93** recommendations without printing
+financial data, prompts, responses or credentials.
+
 ## P5-T04 - AI validation, fallback and resilience - 20 November 2026
 
 **Verified.** The Action Center now offers an explicitly user-requested AI

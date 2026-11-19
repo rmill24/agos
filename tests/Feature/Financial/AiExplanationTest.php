@@ -93,9 +93,11 @@ it('sends only the authorized projection and returns a validated explanation wit
     $before = $snapshot();
     $sent = null;
     $options = null;
-    Http::fake(function (Request $request, array $requestOptions) use (&$sent, &$options) {
+    $responseFormat = null;
+    Http::fake(function (Request $request, array $requestOptions) use (&$sent, &$options, &$responseFormat) {
         $sent = json_decode($request['messages'][1]['content'], true, 32, JSON_THROW_ON_ERROR);
         $options = $requestOptions;
+        $responseFormat = $request['response_format'];
 
         return Http::response(aiExplanationEnvelope(aiExplanationPlan($sent)));
     });
@@ -109,11 +111,18 @@ it('sends only the authorized projection and returns a validated explanation wit
         ->and($sent['actions'][0]['amount'])->toBe('100.01')
         ->and($options['timeout'])->toBeLessThanOrEqual(10)->toBeGreaterThan(0)
         ->and($options['connect_timeout'])->toBeLessThanOrEqual(3)
-        ->and($options['allow_redirects'])->toBeFalse();
+        ->and($options['allow_redirects'])->toBeFalse()
+        ->and($responseFormat['type'])->toBe('json_schema')
+        ->and($responseFormat['json_schema']['name'])->toBe('agos_explanation_plan')
+        ->and($responseFormat['json_schema']['strict'])->toBeTrue()
+        ->and($responseFormat['json_schema']['schema']['additionalProperties'])->toBeFalse()
+        ->and($responseFormat['json_schema']['schema']['properties']['snapshot_id']['enum'])->toBe([$sent['snapshot_id']])
+        ->and($responseFormat['json_schema']['schema']['properties']['actions']['items']['additionalProperties'])->toBeFalse();
     Http::assertSentCount(1);
     Http::assertSent(fn (Request $request) => $request->url() === GroqExplanationProvider::ENDPOINT
         && $request->method() === 'POST' && $request->hasHeader('Authorization', 'Bearer synthetic-test-credential')
-        && $request['response_format']['type'] === 'json_object' && ! isset($request['tools']));
+        && $request['response_format']['type'] === 'json_schema'
+        && $request['response_format']['json_schema']['strict'] === true && ! isset($request['tools']));
 });
 
 it('projects calculation summaries without raw ledger descriptions or history', function () {
@@ -257,7 +266,7 @@ it('rejects an invalid JSON explanation plan', function () {
     expect(app(RecommendationExplanationService::class)->forTeam($actor, $team)['failure_reason'])->toBe('invalid_response');
 });
 
-it('does not send a request when the authorized input exceeds the bounded candidate limit', function () {
+it('explains only the highest-priority bounded subset while retaining the complete deterministic report', function () {
     [$actor, $team] = aiExplanationBusiness();
     $source = Obligation::where('team_id', $team->id)->firstOrFail();
     for ($index = 0; $index < 9; $index++) {
@@ -265,9 +274,24 @@ it('does not send a request when the authorized input exceeds the bounded candid
         $copy->number = 'EXTRA-'.$index;
         $copy->save();
     }
-    Http::fake();
-    expect(app(RecommendationExplanationService::class)->forTeam($actor, $team)['failure_reason'])->toBe('input_too_large');
-    Http::assertNothingSent();
+    $sent = null;
+    Http::fake(function (Request $request) use (&$sent) {
+        $sent = json_decode($request['messages'][1]['content'], true, 32, JSON_THROW_ON_ERROR);
+
+        return Http::response(aiExplanationEnvelope(aiExplanationPlan($sent)));
+    });
+    $result = app(RecommendationExplanationService::class)->forTeam($actor, $team);
+    $expectedIds = array_column(array_slice($result['report']['recommendations'], 0, 10), 'id');
+    expect($result['explanation_status'])->toBe('available')
+        ->and($result['report']['recommendations'])->toHaveCount(11)
+        ->and($result['explanation_scope'])->toBe([
+            'selected_action_count' => 10,
+            'total_action_count' => 11,
+            'is_limited' => true,
+        ])
+        ->and(array_column($sent['actions'], 'id'))->toBe($expectedIds)
+        ->and(array_column($result['explanation']['actions'], 'action_id'))->toEqualCanonicalizing($expectedIds);
+    Http::assertSentCount(1);
 });
 
 it('checks the remaining deadline before a provider call', function () {

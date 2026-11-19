@@ -44,7 +44,10 @@ final class GroqExplanationProvider implements AiExplanationProvider
                 ->withOptions(['allow_redirects' => false])
                 ->post(self::ENDPOINT, [
                     'model' => $model, 'temperature' => 0, 'max_completion_tokens' => 3000,
-                    'response_format' => ['type' => 'json_object'],
+                    // GPT-OSS supports strict schemas. Constrain syntax and the
+                    // response shape at the provider, then retain our stricter
+                    // evidence and authorization validation below this boundary.
+                    'response_format' => $this->responseFormat($payload),
                     'messages' => [
                         ['role' => 'system', 'content' => $this->instructions()],
                         ['role' => 'user', 'content' => json_encode($payload, JSON_THROW_ON_ERROR)],
@@ -97,5 +100,50 @@ Do not return free-form prose, new action text, financial numbers, calculated ba
 The server renders the selected verified statements and keeps deterministic priorities authoritative.
 Never imply uncertain collections are confirmed cash or that missing records prove financial safety.
 PROMPT;
+    }
+
+    /** @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function responseFormat(array $payload): array
+    {
+        /** @var list<string> $actionIds */
+        $actionIds = array_column($payload['actions'], 'id');
+        /** @var list<string> $evidenceReferences */
+        $evidenceReferences = array_keys($payload['evidence']);
+        /** @var list<string> $limitationIds */
+        $limitationIds = array_keys($payload['limitations']);
+
+        return [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => 'agos_explanation_plan',
+                'strict' => true,
+                'schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'schema_version' => ['type' => 'string', 'enum' => ['1']],
+                        'snapshot_id' => ['type' => 'string', 'enum' => [$payload['snapshot_id']]],
+                        'summary_action_ids' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => $actionIds]],
+                        'actions' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'action_id' => ['type' => 'string', 'enum' => $actionIds],
+                                    'explanation_codes' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['why_this_action', 'cash_treatment']]],
+                                    'evidence_references' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => $evidenceReferences]],
+                                ],
+                                'required' => ['action_id', 'explanation_codes', 'evidence_references'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                        'limitation_ids' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => $limitationIds]],
+                    ],
+                    'required' => ['schema_version', 'snapshot_id', 'summary_action_ids', 'actions', 'limitation_ids'],
+                    'additionalProperties' => false,
+                ],
+            ],
+        ];
     }
 }

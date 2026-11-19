@@ -26,7 +26,13 @@ final class RecommendationExplanationService
     {
         $started = hrtime(true);
         $context = RecommendationExplanationContext::forTeam($actor, $team, $this->recommendations, $days);
-        $result = ['report' => $context->report, 'explanation' => null, 'explanation_status' => 'unavailable', 'failure_reason' => null];
+        $result = [
+            'report' => $context->report,
+            'explanation' => null,
+            'explanation_scope' => $context->scope(),
+            'explanation_status' => 'unavailable',
+            'failure_reason' => null,
+        ];
         if (! config('ai.enabled')) {
             return [...$result, 'explanation_status' => 'disabled'];
         }
