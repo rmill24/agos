@@ -40,6 +40,12 @@ new #[Title('Business onboarding')] class extends Component
 
     public string $cashSafetyThreshold = '';
 
+    public string $openingCashBalance = '';
+
+    public string $openingCashBalanceDate = '';
+
+    public bool $openingCashBalanceVerified = false;
+
     public function mount(Team $current_team): void
     {
         Gate::authorize('completeOnboarding', $current_team);
@@ -59,6 +65,9 @@ new #[Title('Business onboarding')] class extends Component
         $this->currencyCode = $current_team->currency_code ?? 'PHP';
         $this->timezone = $current_team->timezone ?? 'Asia/Manila';
         $this->cashSafetyThreshold = $current_team->cash_safety_threshold ?? '';
+        $this->openingCashBalance = $current_team->opening_cash_balance ?? '';
+        $this->openingCashBalanceDate = $current_team->opening_cash_balance_date?->toDateString() ?? '';
+        $this->openingCashBalanceVerified = $current_team->opening_cash_balance_verified_at !== null;
     }
 
     public function completeOnboarding(BusinessProfileService $profileService): void
@@ -94,6 +103,13 @@ new #[Title('Business onboarding')] class extends Component
             <flux:input wire:model="currencyCode" :label="__('Currency')" maxlength="3" readonly required />
             <flux:input wire:model="timezone" :label="__('Business timezone')" required />
             <flux:input wire:model="cashSafetyThreshold" :label="__('Cash-safety threshold (PHP)')" inputmode="decimal" hint="The minimum projected cash balance AGOS should protect." />
+            <div class="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <flux:heading level="3" size="sm">Verified opening cash</flux:heading>
+                <flux:text class="text-sm">Enter the cash position immediately before the effective date. AGOS will use it as the starting point for absolute cash and forecast calculations.</flux:text>
+                <flux:input wire:model="openingCashBalance" :label="__('Opening cash balance (PHP)')" inputmode="decimal" />
+                <flux:input wire:model="openingCashBalanceDate" :label="__('Effective date')" type="date" />
+                <flux:checkbox wire:model="openingCashBalanceVerified" label="I confirm this opening cash balance is verified." />
+            </div>
             <flux:button type="submit" variant="primary">{{ __('Complete onboarding') }}</flux:button>
         </form>
     </x-pages::settings.layout>

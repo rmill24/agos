@@ -120,6 +120,7 @@ Review every new page for visual consistency, responsiveness, accessibility, and
 - **P4-T03:** Implement isolated scenarios (payment delay, sales change, expense increase, supplier delay, deposit, purchase).
 - **P4-T04:** Add baseline-vs-scenario comparisons and purchase-affordability alternatives.
 - **P4-T05:** Test calculations against independent fixtures; assert scenarios do not modify actual financial records.
+- **P4-T06:** Add an Owner-controlled verified opening-balance and cash-history completeness workflow. Persist the effective business date, decimal-safe opening balance, verification metadata, and audit event; expose it through onboarding and Business Profile settings; feed it into dashboard, scenario, threshold, cash-gap, and affordability calculations; and preserve explicit unavailable states when history remains incomplete.
 
 **Gate:** Cash math reconciles and scenario isolation is proven by tests.
 

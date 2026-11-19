@@ -47,6 +47,9 @@
                     <dt class="text-sm font-medium">Current cash</dt>
                     <dd class="mt-3 wrap-anywhere text-3xl font-semibold tabular-nums">{{ $cashFlow['currentCash'] === null ? 'Unavailable' : 'PHP '.$cashFlow['currentCash'] }}</dd>
                     <p class="mt-2 text-sm text-brand-100">{{ $cashFlow['historyComplete'] ? 'Confirmed cash position' : 'Opening balance is not verified' }}</p>
+                    @if ($cashFlow['historyComplete'] && $cashFlow['openingBalance'] !== null)
+                        <p class="mt-1 text-xs text-brand-100">Verified starting cash: PHP {{ $cashFlow['openingBalance'] }} before {{ $team->opening_cash_balance_date?->toDateString() ?? $cashFlow['asOf'] }}</p>
+                    @endif
                 </div>
                 <div class="agos-card min-w-0 p-6">
                     <dt class="agos-muted text-sm font-medium">Projected cash</dt>

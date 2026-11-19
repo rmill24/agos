@@ -1,5 +1,57 @@
 # AGOS implementation status
 
+## P4-T06 - Verified opening-balance and cash-history completeness workflow - 20 November 2026
+
+**Verified.** Teams now persist an Owner-confirmed decimal opening cash
+balance, effective business date, verification timestamp, and verifying user.
+Owners can configure or clear it during onboarding and from Business Profile
+settings. The workflow validates the amount, date, and explicit confirmation,
+records Team-scoped audit events, and denies Manager, Bookkeeper, System
+Administrator, incomplete-business, and cross-Team access through existing
+authorization boundaries.
+
+CashFlowService automatically consumes only verified persisted opening cash,
+scopes ledger history from its effective date, and exposes the verified source
+to dashboard and scenario calculations. Unverified or missing values remain
+unavailable; future effective dates are rejected; stale source warnings and
+confirmed/expected/uncertain/optional classifications remain intact.
+
+The full suite passed 205 tests with 879 assertions and two expected
+PostgreSQL-only skips. Pint, PHPStan, migration status, the Vite production
+build, and `git diff --check` passed. Migration
+`2026_11_20_000001_add_verified_opening_cash_to_teams` is applied. Browser
+automation is not installed in this repository, so browser visual checks
+remain unperformed.
+
+**Next task:** P5-T01 - deterministic prioritized candidate recommendations.
+Do not begin until approved.
+
+## P4-T05 - Independent cash-flow and scenario verification - 20 November 2026
+
+**Verified.** Added an independently calculated mixed-ledger fixture covering
+confirmed movements, partial invoice and bill payments, uncertain collection,
+expected outflow, refund outflow, decimal precision, forecast boundary dates,
+threshold crossing, cash gap, and earliest shortfall. The expected results are
+documented beside the fixture inputs rather than derived from service output.
+
+The verification suite also exercises all six scenario types, baseline-versus-
+scenario comparison deltas, all four purchase-affordability alternatives,
+stale Loyverse synchronization warnings, incomplete opening history, service-
+boundary authorization, Team isolation, and persisted-record immutability.
+No CashFlowService or ScenarioService calculation defect was found, so no
+financial production code was changed for P4-T05.
+
+The full suite passed 200 tests with 858 assertions and two expected
+PostgreSQL-only skips. Pint, PHPStan, migration status, the Vite production
+build, and `git diff --check` passed. PostgreSQL 18 is installed and running,
+but no separate `agos_test` or `agos_testing` database was available; the
+development database was not reset or used for concurrency verification.
+Browser automation is not installed in this repository, so browser chart,
+responsive, and accessibility checks remain unperformed.
+
+**Next task:** P4-T06 - verified opening-balance and cash-history completeness workflow. This task was subsequently verified above.
+Do not begin until approved.
+
 ## P4-T04 - Baseline-versus-scenario comparisons and purchase affordability - 19 November 2026
 
 **Verified.** The transient Scenario Simulator now exposes server-calculated

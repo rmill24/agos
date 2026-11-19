@@ -3,6 +3,7 @@
 namespace Tests\Feature\Teams;
 
 use App\Enums\TeamRole;
+use App\Models\AuditEvent;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -129,5 +130,55 @@ class BusinessProfileSettingsTest extends TestCase
         Livewire::actingAs($administrator)
             ->test('pages::settings.business')
             ->assertForbidden();
+    }
+
+    public function test_owner_can_save_a_verified_opening_balance_and_audit_event(): void
+    {
+        $owner = User::factory()->create();
+        $team = Team::factory()->create(['onboarding_completed_at' => now()]);
+        $team->members()->attach($owner, ['role' => TeamRole::Owner]);
+        $owner->switchTeam($team);
+
+        Livewire::actingAs($owner)
+            ->test('pages::settings.business')
+            ->set('openingCashBalance', '1000.10')
+            ->set('openingCashBalanceDate', '2026-11-01')
+            ->set('openingCashBalanceVerified', true)
+            ->set('legalName', 'Verified Business OPC')
+            ->set('businessType', 'Retail')
+            ->set('addressLine1', '1 Main Street')
+            ->set('city', 'Manila')
+            ->set('province', 'Metro Manila')
+            ->set('postalCode', '1000')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $saved = $team->fresh();
+        $this->assertSame('1000.10', $saved->opening_cash_balance);
+        $this->assertSame('2026-11-01', $saved->opening_cash_balance_date->toDateString());
+        $this->assertSame($owner->id, $saved->opening_cash_balance_verified_by);
+        $this->assertSame('business.opening_cash_balance.updated', AuditEvent::where('team_id', $team->id)->latest('id')->value('event_type'));
+    }
+
+    public function test_opening_balance_requires_date_and_explicit_verification(): void
+    {
+        $owner = User::factory()->create();
+        $team = Team::factory()->create(['onboarding_completed_at' => now()]);
+        $team->members()->attach($owner, ['role' => TeamRole::Owner]);
+        $owner->switchTeam($team);
+
+        Livewire::actingAs($owner)
+            ->test('pages::settings.business')
+            ->set('openingCashBalance', '1000.10')
+            ->set('legalName', 'Verified Business OPC')
+            ->set('businessType', 'Retail')
+            ->set('addressLine1', '1 Main Street')
+            ->set('city', 'Manila')
+            ->set('province', 'Metro Manila')
+            ->set('postalCode', '1000')
+            ->call('save')
+            ->assertHasErrors('openingCashBalance');
+
+        $this->assertDatabaseMissing('teams', ['id' => $team->id, 'opening_cash_balance' => '1000.10']);
     }
 }

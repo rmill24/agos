@@ -31,6 +31,10 @@ use Illuminate\Support\Carbon;
  * @property string $currency_code
  * @property string $timezone
  * @property string|null $cash_safety_threshold
+ * @property string|null $opening_cash_balance
+ * @property Carbon|null $opening_cash_balance_date
+ * @property Carbon|null $opening_cash_balance_verified_at
+ * @property int|null $opening_cash_balance_verified_by
  * @property Carbon|null $onboarding_completed_at
  * @property string $slug
  * @property bool $is_personal
@@ -62,6 +66,10 @@ use Illuminate\Support\Carbon;
     'timezone',
     'onboarding_completed_at',
     'cash_safety_threshold',
+    'opening_cash_balance',
+    'opening_cash_balance_date',
+    'opening_cash_balance_verified_at',
+    'opening_cash_balance_verified_by',
 ])]
 class Team extends Model
 {
@@ -210,6 +218,9 @@ class Team extends Model
             'is_personal' => 'boolean',
             'onboarding_completed_at' => 'datetime',
             'cash_safety_threshold' => 'decimal:2',
+            'opening_cash_balance' => 'decimal:2',
+            'opening_cash_balance_date' => 'date',
+            'opening_cash_balance_verified_at' => 'datetime',
         ];
     }
 

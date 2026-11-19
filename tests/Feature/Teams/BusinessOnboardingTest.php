@@ -154,4 +154,32 @@ class BusinessOnboardingTest extends TestCase
             'role' => 'system_administrator',
         ]);
     }
+
+    public function test_owner_can_complete_onboarding_with_verified_opening_balance(): void
+    {
+        $owner = User::factory()->create();
+        $team = Team::factory()->create();
+        $team->members()->attach($owner, ['role' => TeamRole::Owner]);
+
+        Livewire::actingAs($owner)
+            ->test('pages::teams.onboarding', ['current_team' => $team])
+            ->set('teamName', 'Verified Cash Business')
+            ->set('legalName', 'Verified Cash Business OPC')
+            ->set('businessType', 'Retail')
+            ->set('contactEmail', 'verified@example.test')
+            ->set('addressLine1', '1 Cash Street')
+            ->set('city', 'Manila')
+            ->set('province', 'Metro Manila')
+            ->set('postalCode', '1000')
+            ->set('openingCashBalance', '500.00')
+            ->set('openingCashBalanceDate', '2026-11-01')
+            ->set('openingCashBalanceVerified', true)
+            ->call('completeOnboarding')
+            ->assertHasNoErrors();
+
+        $saved = $team->fresh();
+        $this->assertSame('500.00', $saved->opening_cash_balance);
+        $this->assertSame('2026-11-01', $saved->opening_cash_balance_date->toDateString());
+        $this->assertSame($owner->id, $saved->opening_cash_balance_verified_by);
+    }
 }

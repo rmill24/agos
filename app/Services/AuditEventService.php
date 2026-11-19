@@ -38,10 +38,14 @@ class AuditEventService
         );
 
         if ($auditable !== null) {
-            abort_unless(
-                isset($auditable->team_id) && (int) $auditable->team_id === (int) $team->id,
-                403,
-            );
+            if ($auditable instanceof Team) {
+                abort_unless((int) $auditable->getKey() === (int) $team->id, 403);
+            } else {
+                abort_unless(
+                    isset($auditable->team_id) && (int) $auditable->team_id === (int) $team->id,
+                    403,
+                );
+            }
         }
 
         return AuditEvent::create([

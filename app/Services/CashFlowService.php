@@ -33,6 +33,15 @@ class CashFlowService
         $asOf ??= CarbonImmutable::now($team->timezone ?: 'Asia/Manila')->startOfDay();
         $days = max(1, min($days, 366));
         $end = $asOf->addDays($days - 1);
+        $storedOpeningBalance = $team->opening_cash_balance_verified_at !== null
+            ? (string) $team->opening_cash_balance
+            : null;
+        $openingBalanceDate = $team->opening_cash_balance_verified_at !== null && $team->opening_cash_balance_date !== null
+            ? $team->opening_cash_balance_date->toDateString()
+            : null;
+        if ($openingBalance === null) {
+            $openingBalance = $storedOpeningBalance;
+        }
         $zero = BigDecimal::of('0.00');
         $inflow = $zero;
         $outflow = $zero;
@@ -43,9 +52,12 @@ class CashFlowService
             $history[$date->toDateString()] = ['date' => $date->toDateString(), 'inflow' => $zero, 'outflow' => $zero, 'net' => $zero];
         }
 
-        $transactions = $team->transactions()
-            ->whereDate('transaction_date', '<=', $asOf->toDateString())
-            ->orderBy('transaction_date')->orderBy('id')->get();
+        $transactionsQuery = $team->transactions()
+            ->whereDate('transaction_date', '<=', $asOf->toDateString());
+        if ($openingBalanceDate !== null) {
+            $transactionsQuery->whereDate('transaction_date', '>=', $openingBalanceDate);
+        }
+        $transactions = $transactionsQuery->orderBy('transaction_date')->orderBy('id')->get();
         foreach ($transactions as $transaction) {
             if ($transaction->direction === 'income') {
                 $inflow = $inflow->plus($transaction->amountAsBigDecimal());
@@ -106,7 +118,9 @@ class CashFlowService
         }
 
         $confirmedMovement = $inflow->minus($outflow);
-        $opening = $openingBalance === null ? null : BigDecimal::of($openingBalance)->toScale(2);
+        $opening = $openingBalance === null || ($openingBalanceDate !== null && $openingBalanceDate > $asOf->toDateString())
+            ? null
+            : BigDecimal::of($openingBalance)->toScale(2);
         $currentCash = $opening?->plus($confirmedMovement);
         $threshold = $team->cash_safety_threshold === null ? null : BigDecimal::of($team->cash_safety_threshold);
         $daily = [];
@@ -117,6 +131,9 @@ class CashFlowService
         $limitations = [];
         if ($opening === null) {
             $limitations[] = 'Absolute cash and threshold crossings require a verified opening balance or complete cash history.';
+        }
+        if ($openingBalanceDate !== null && $openingBalanceDate > $asOf->toDateString()) {
+            $limitations[] = 'The verified opening balance becomes effective after the selected as-of date.';
         }
         if ($threshold === null) {
             $limitations[] = 'Configure a cash-safety threshold to identify projected shortfalls.';
