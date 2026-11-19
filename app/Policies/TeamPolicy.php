@@ -8,6 +8,15 @@ use App\Models\User;
 
 class TeamPolicy
 {
+    public function viewDashboard(User $user, Team $team): bool
+    {
+        if ($team->is_personal) {
+            return $user->belongsToTeam($team);
+        }
+
+        return $this->hasFinancialPermission($user, $team, TeamPermission::ViewReports);
+    }
+
     public function manageContacts(User $user, Team $team): bool
     {
         return $this->manageFinancialRecords($user, $team);

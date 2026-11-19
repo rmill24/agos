@@ -1,124 +1,94 @@
 <x-layouts::app :title="__('Dashboard')">
     <div class="agos-page">
         <livewire:pages::teams.pending-invitations-modal />
-        <div class="agos-page-header">
-            <div>
-                <p class="agos-eyebrow">{{ __('Workspace') }}</p>
-                <flux:heading size="xl" level="1" class="mt-2">
-                    {{ __('Good day, :name', ['name' => auth()->user()->name]) }}</flux:heading>
-                <flux:subheading class="mt-2">
-                    {{ __('Here is your starting point for keeping business finances organized.') }}</flux:subheading>
-            </div>
-            <div class="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900"><span
-                    class="font-semibold">{{ auth()->user()->currentTeam?->name }}</span><span
-                    class="mx-1 text-brand-300">·</span>{{ __('Business workspace') }}</div>
-        </div>
-        @can('manageFinancialRecords', auth()->user()->currentTeam)
-            @php
-                $runs = auth()->user()->currentTeam->loyverseSyncs();
-                $latestSync = (clone $runs)->latest('id')->first();
-                $lastSuccess = (clone $runs)->where('status', 'complete')->latest('id')->first();
-            @endphp
-            @if($latestSync)
-                <section class="agos-card space-y-1 p-5" aria-label="Loyverse status">
-                    <flux:heading>Loyverse receipts</flux:heading>
-                    <flux:text>{{ $latestSync->status === 'complete' ? 'Last sync complete.' : 'Latest sync incomplete. Previously published records may be stale.' }}
-                        Last successful sync: {{ $lastSuccess ? $lastSuccess->completed_at->timezone('Asia/Manila')->format('M j, Y g:i A').' PHT' : 'Never' }}.</flux:text>
-                    @can('syncLoyverse', auth()->user()->currentTeam)
-                        <a class="agos-link" href="{{ route('loyverse.index', auth()->user()->currentTeam) }}" wire:navigate>View sync history</a>
-                    @endcan
-                </section>
-            @endif
-        @endcan
-        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <article class="agos-card p-6">
-                <div class="flex items-center justify-between"><span class="rounded-xl bg-brand-50 p-3 text-brand-600">
-                        <flux:icon name="arrows-right-left" class="size-5" />
-                    </span><span
-                        class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ __('Workspace') }}</span>
+        @if ($team->is_personal)
+            <header class="agos-page-header"><flux:heading level="1" size="xl">Your workspace</flux:heading></header>
+            <section class="agos-card space-y-3 p-6">
+                <flux:heading level="2">Set up your business</flux:heading>
+                <flux:text>Create or select a business to see its cash dashboard.</flux:text>
+                <a class="agos-link" href="{{ route('teams.index') }}" wire:navigate>Manage teams</a>
+            </section>
+        @else
+            <header class="agos-page-header">
+                <div>
+                    <p class="agos-eyebrow">{{ $team->name }}</p>
+                    <flux:heading level="1" size="xl" class="mt-2">Cash dashboard</flux:heading>
+                    <flux:subheading>Month to date · {{ $today->format('M j, Y') }} PHT</flux:subheading>
                 </div>
-                <h2 class="mt-5 text-lg font-bold">{{ __('Transactions') }}</h2>
-                <p class="mt-2 text-sm leading-6 text-slate-600">
-                    {{ __('Record and review income and expenses for this business.') }}</p><a
-                    class="agos-link mt-5 inline-block text-sm"
-                    href="{{ route('transactions.index', ['current_team' => auth()->user()->currentTeam?->slug]) }}"
-                    wire:navigate>{{ __('Open transactions') }} →</a>
-            </article>
-            <article class="agos-card p-6">
-                <div class="flex items-center justify-between"><span
-                        class="rounded-xl bg-emerald-50 p-3 text-emerald-600">
-                        <flux:icon name="tag" class="size-5" />
-                    </span><span
-                        class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ __('Workspace') }}</span>
+                <flux:button href="{{ route('transactions.index', $team) }}" icon="arrows-right-left" wire:navigate>View transactions</flux:button>
+            </header>
+
+            <dl class="grid gap-4 md:grid-cols-3">
+                <div class="min-w-0 rounded-2xl bg-brand-900 p-6 text-white">
+                    <dt class="text-sm font-medium">Net cash movement</dt>
+                    <dd class="mt-3 wrap-anywhere text-3xl font-semibold tabular-nums">₱{{ $net }}</dd>
+                    <p class="mt-2 text-sm text-brand-100">Recorded cash in less cash out</p>
                 </div>
-                <h2 class="mt-5 text-lg font-bold">{{ __('Categories') }}</h2>
-                <p class="mt-2 text-sm leading-6 text-slate-600">
-                    {{ __('Keep your financial activity easy to understand with business categories.') }}</p><a
-                    class="agos-link mt-5 inline-block text-sm"
-                    href="{{ route('categories.index', ['current_team' => auth()->user()->currentTeam?->slug]) }}"
-                    wire:navigate>{{ __('Manage categories') }} →</a>
-            </article>
-            @can('manageContacts', auth()->user()->currentTeam)
-                @foreach ([
-                    ['title' => __('Customers'), 'description' => __('People and businesses that buy from you.'), 'icon' => 'users', 'route' => 'customers.index', 'link' => __('View customers')],
-                    ['title' => __('Suppliers'), 'description' => __('People and businesses you buy supplies from.'), 'icon' => 'building-office', 'route' => 'suppliers.index', 'link' => __('View suppliers')],
-                ] as $directory)
-                    <article class="agos-card p-6">
-                        <span class="inline-flex rounded-xl bg-brand-50 p-3 text-brand-600">
-                            <flux:icon :name="$directory['icon']" class="size-5" />
-                        </span>
-                        <h2 class="mt-5 text-lg font-bold">{{ $directory['title'] }}</h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">{{ $directory['description'] }}</p>
-                        <a class="agos-link mt-5 inline-block text-sm"
-                            href="{{ route($directory['route'], auth()->user()->currentTeam) }}" wire:navigate>
-                            {{ $directory['link'] }} <span aria-hidden="true">→</span>
-                        </a>
-                    </article>
+                @foreach (['Cash in' => $income, 'Cash out' => $expense] as $label => $amount)
+                    <div class="agos-card min-w-0 p-6">
+                        <dt class="agos-muted text-sm font-medium">{{ $label }}</dt>
+                        <dd class="mt-3 wrap-anywhere text-3xl font-semibold tabular-nums">₱{{ $amount }}</dd>
+                    </div>
                 @endforeach
+            </dl>
+            <p class="agos-muted mt-3 text-sm">Current cash balance is unknown. A verified opening balance or complete cash history is required.</p>
+
+            <div class="mt-6 grid items-start gap-5 xl:grid-cols-[3fr_2fr]">
+                <section class="agos-card min-w-0 p-6">
+                    <flux:heading level="2" size="lg">Recent cash movements</flux:heading>
+                    <ul class="mt-3 divide-y divide-slate-200">
+                        @forelse ($recent as $entry)
+                            <li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
+                                <div class="min-w-0">
+                                    <p class="wrap-anywhere font-medium">{{ $entry->description }}</p>
+                                    <p class="agos-muted text-sm">{{ $entry->transaction_date->format('M j, Y') }} · {{ $entry->direction === 'income' ? 'Income' : 'Expense' }}</p>
+                                </div>
+                                <span class="font-semibold tabular-nums">{{ $entry->direction === 'income' ? '+' : '−' }}₱{{ $entry->amount }}</span>
+                            </li>
+                        @empty
+                            <li class="agos-muted py-3 text-sm">No cash movements recorded this month.</li>
+                        @endforelse
+                    </ul>
+                </section>
+
+                @can('viewRecommendations', $team)
+                    <section class="agos-card min-w-0 p-6">
+                        <flux:heading level="2" size="lg">Action Center</flux:heading>
+                        <ul class="mt-3 divide-y divide-slate-200">
+                            @forelse ($actions as $action)
+                                @php($source = $action['evidence'])
+                                <li class="space-y-1 py-3">
+                                    <p class="text-sm font-semibold">{{ $action['action'] }}</p>
+                                    <a class="agos-link wrap-anywhere text-sm" href="{{ route($source['kind'] === 'invoice' ? 'invoices.index' : 'bills.index', ['current_team' => $team, 'document' => $source['obligation_id']]) }}" wire:navigate>{{ $action['document'] }}</a>
+                                    <p class="agos-muted text-sm">₱{{ $action['amount'] }} outstanding · Due {{ $action['due_date'] }}</p>
+                                </li>
+                            @empty
+                                <li class="agos-muted py-3 text-sm">No invoices or bills are due today or overdue.</li>
+                            @endforelse
+                        </ul>
+                        <a class="agos-link mt-3 inline-block text-sm" href="{{ route('recommendations.index', $team) }}" wire:navigate>Open Action Center</a>
+                    </section>
+                @endcan
+            </div>
+
+            <section class="agos-card mt-5 flex flex-wrap items-center justify-between gap-4 px-6 py-4" aria-label="Loyverse status">
+                <div>
+                    <flux:heading level="2">Loyverse receipts</flux:heading>
+                    <flux:text>
+                        @if ($latestSync && $latestSync->status !== 'complete')Latest sync incomplete. Previously published records may be stale. @endif
+                        Last successful sync: {{ $lastSuccess ? $lastSuccess->completed_at->timezone('Asia/Manila')->format('M j, Y g:i A').' PHT' : 'Never' }}.
+                    </flux:text>
+                </div>
+                @can('syncLoyverse', $team)
+                    <a class="agos-link text-sm" href="{{ route('loyverse.index', $team) }}" wire:navigate>View sync history</a>
+                @endcan
+            </section>
+            @can('manageContacts', $team)
+                <nav aria-label="Contact directories" class="mt-5 flex flex-wrap gap-5 text-sm">
+                    <a class="agos-link" href="{{ route('customers.index', $team) }}" wire:navigate>View customers</a>
+                    <a class="agos-link" href="{{ route('suppliers.index', $team) }}" wire:navigate>View suppliers</a>
+                </nav>
             @endcan
-            <article class="agos-card p-6">
-                <div class="flex items-center justify-between"><span class="rounded-xl bg-amber-50 p-3 text-amber-600">
-                        <flux:icon name="building-office-2" class="size-5" />
-                    </span><span
-                        class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ __('Business') }}</span>
-                </div>
-                <h2 class="mt-5 text-lg font-bold">{{ __('Business profile') }}</h2>
-                <p class="mt-2 text-sm leading-6 text-slate-600">
-                    {{ __('Review the details that keep your AGOS workspace grounded in your business.') }}</p><a
-                    class="agos-link mt-5 inline-block text-sm" href="{{ route('business.edit') }}"
-                    wire:navigate>{{ __('View profile') }} →</a>
-            </article>
-        </div>
-        <section class="agos-card mt-5 overflow-hidden">
-            <div
-                class="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 class="text-lg font-bold">{{ __('Your workspace is ready') }}</h2>
-                    <p class="mt-1 text-sm text-slate-600">
-                        {{ __('AGOS shows what is available today and keeps future capabilities clearly separated.') }}
-                    </p>
-                </div><span
-                    class="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"><span
-                        class="size-1.5 rounded-full bg-emerald-500"></span>{{ __('Business profile complete') }}</span>
-            </div>
-            <div class="grid gap-6 px-6 py-6 text-sm text-slate-600 sm:grid-cols-3">
-                <div>
-                    <p class="font-semibold text-slate-900">{{ __('Start with records') }}</p>
-                    <p class="mt-1 leading-6">
-                        {{ __('Capture the activity you already know so your view stays useful and evidence-based.') }}
-                    </p>
-                </div>
-                <div>
-                    <p class="font-semibold text-slate-900">{{ __('Keep context close') }}</p>
-                    <p class="mt-1 leading-6">
-                        {{ __('Use categories and references to make every entry easier to review later.') }}</p>
-                </div>
-                <div>
-                    <p class="font-semibold text-slate-900">{{ __('Invite the right people') }}</p>
-                    <p class="mt-1 leading-6">
-                        {{ __('Manage business access through the team workspace and role permissions.') }}</p>
-                </div>
-            </div>
-        </section>
+        @endif
     </div>
 </x-layouts::app>

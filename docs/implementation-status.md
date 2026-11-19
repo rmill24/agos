@@ -1,5 +1,11 @@
 # AGOS implementation status
 
+## Cash dashboard — P4-T02 partial
+
+The business dashboard shows month-to-date ledger income, expenses, net movement and the five most recent movements through today's Manila date. It also links to the three highest-priority invoice or bill recommendations and shows Loyverse freshness. Personal workspaces retain setup and invitation access. P4-T01 remains the dependency for absolute cash, projected balances and shortfall dates.
+
+The full isolated PostgreSQL suite passed 165 tests with 690 assertions. SQLite passed 163 with two PostgreSQL-only skips. Pint, PHPStan, migration status and the asset build passed. Chrome checks covered keyboard navigation to the Action Center and viewport fit at 1440, 768 and 390 pixels.
+
 ## P5 Action Center — 19 November 2026
 
 **P5-T01 and P5-T02 verified for invoice and supplier bill recommendations.** Open Workspace → Action Center in an onboarded business. Overdue obligations appear before items due today, partial payments reduce the displayed amount, and settled obligations drop out on refresh. Each source link opens the matching Team document. The rules use Manila dates and the existing decimal-safe obligation balance.
