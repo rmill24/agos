@@ -209,7 +209,7 @@ new class extends Component
             <div>
                 <label class="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 text-center focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600 sm:p-8"
                     x-bind:class="dragging ? 'border-brand-600 bg-brand-50 dark:bg-zinc-800' : 'border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900'">
-                    <flux:icon.arrow-up-tray class="size-7 text-brand-600" />
+                    <flux:icon.arrow-up-tray class="size-7 text-brand-600 dark:text-blue-300" />
                     <span class="max-w-full break-all font-medium">{{ $file ? $file->getClientOriginalName() : __('Drop your transaction CSV here') }}</span>
                     <span class="font-medium underline underline-offset-4">{{ $file ? __('Browse to replace file') : __('Browse files') }}</span>
                     <span id="csv-requirements" class="text-sm text-zinc-600 dark:text-zinc-400">UTF-8 CSV with a header row · Up to 2 MiB</span>
@@ -257,10 +257,10 @@ new class extends Component
                 <th scope="col" class="w-24 px-3 py-3 text-right font-medium">Actions</th>
             </x-slot:head>
             @forelse ($this->past as $previous)
-                <tr wire:key="import-{{ $previous->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                <tr wire:key="import-{{ $previous->id }}">
                     <th scope="row" class="px-5 py-4">
                         <button type="button" wire:click="open({{ $previous->id }})" class="text-left font-semibold">Batch {{ $previous->id }}</button>
-                        <span class="block font-normal text-slate-600 sm:hidden">{{ $previous->committed_at ? 'Imported' : 'Draft' }} · {{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</span>
+                        <span class="block font-normal text-slate-600 dark:text-slate-300 sm:hidden">{{ $previous->committed_at ? 'Imported' : 'Draft' }} · {{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</span>
                     </th>
                     <td class="hidden px-3 py-4 sm:table-cell">{{ $previous->created_at->timezone('Asia/Manila')->toDateString() }}</td>
                     <td class="hidden px-3 py-4 md:table-cell">{{ $previous->rows_count }}</td>
@@ -268,7 +268,7 @@ new class extends Component
                     <td class="px-3 py-4 text-right"><flux:button size="sm" variant="outline" wire:click="open({{ $previous->id }})" :aria-label="'View details for batch '.$previous->id">Details</flux:button></td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="p-8 text-center text-slate-600">{{ $status ? 'No matching import batches.' : 'No CSV imports yet.' }}</td></tr>
+                <tr><td colspan="5" class="p-8 text-center text-slate-600 dark:text-slate-300">{{ $status ? 'No matching import batches.' : 'No CSV imports yet.' }}</td></tr>
             @endforelse
         </x-directory-table>
     </flux:modal>

@@ -200,7 +200,7 @@ new class extends Component
             <th scope="col" class="w-24 px-3 py-3 text-right font-medium">{{ __('Actions') }}</th>
         </x-slot:head>
         @forelse ($contacts as $contact)
-            <tr wire:key="contact-{{ $contact->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <tr wire:key="contact-{{ $contact->id }}">
                 <th scope="row" class="px-5 py-4">
                     <button type="button" wire:click="openProfile({{ $contact->id }})" class="flex max-w-full items-center gap-3 text-left">
                         <x-contact-avatar :contact="$contact" />
@@ -214,7 +214,7 @@ new class extends Component
                 </td>
             </tr>
         @empty
-            <tr><td colspan="4" class="p-8 text-center text-slate-600">
+            <tr><td colspan="4" class="p-8 text-center text-slate-600 dark:text-slate-300">
                 {{ trim($search) !== '' ? __('No matching contacts.') : ($status === 'archived' ? __('No archived contacts.') : ($suppliers ? __('No suppliers yet.') : __('No customers yet.'))) }}
             </td></tr>
         @endforelse
@@ -228,9 +228,9 @@ new class extends Component
                     <x-contact-avatar :contact="$profile" />
                     <flux:heading size="xl" class="min-w-0 wrap-break-word">{{ $profile->name }}</flux:heading>
                 </div>
-                <dl class="space-y-4 border-y border-slate-200 py-5 text-sm">
+                <dl class="space-y-4 border-y border-slate-200 dark:border-slate-700 py-5 text-sm">
                     @foreach ([__('Business') => $team->name, __('Status') => $profile->trashed() ? __('Archived') : __('Active'), __('Email') => $profile->email ?: __('No email added'), __('Phone') => $profile->phone ?: __('No phone added')] as $label => $detail)
-                        <div><dt class="font-medium text-slate-600">{{ $label }}</dt><dd class="mt-1 wrap-break-word">{{ $detail }}</dd></div>
+                        <div><dt class="font-medium text-slate-600 dark:text-slate-300">{{ $label }}</dt><dd class="mt-1 wrap-break-word">{{ $detail }}</dd></div>
                     @endforeach
                 </dl>
                 @unless ($profile->trashed())

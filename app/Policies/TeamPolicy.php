@@ -8,6 +8,15 @@ use App\Models\User;
 
 class TeamPolicy
 {
+    public function viewDashboard(User $user, Team $team): bool
+    {
+        if ($team->is_personal) {
+            return $user->belongsToTeam($team);
+        }
+
+        return $this->hasFinancialPermission($user, $team, TeamPermission::ViewReports);
+    }
+
     public function manageContacts(User $user, Team $team): bool
     {
         return $this->manageFinancialRecords($user, $team);
@@ -15,10 +24,20 @@ class TeamPolicy
 
     public function manageFinancialRecords(User $user, Team $team): bool
     {
+        return $this->hasFinancialPermission($user, $team, TeamPermission::ManageFinancialRecords);
+    }
+
+    public function viewRecommendations(User $user, Team $team): bool
+    {
+        return $this->hasFinancialPermission($user, $team, TeamPermission::ViewRecommendations);
+    }
+
+    private function hasFinancialPermission(User $user, Team $team, TeamPermission $permission): bool
+    {
         return ! $user->isSystemAdministrator() && ! $team->is_personal
             && $team->isOnboardingComplete()
             && $user->belongsToTeam($team)
-            && $user->hasTeamPermission($team, TeamPermission::ManageFinancialRecords);
+            && $user->hasTeamPermission($team, $permission);
     }
 
     /**

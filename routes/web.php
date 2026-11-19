@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Middleware\EnsureBusinessOnboarding;
 use App\Http\Middleware\EnsureTeamMembership;
 use App\Models\Team;
@@ -27,8 +28,8 @@ Route::prefix('{current_team}')
     ->middleware(['auth', 'verified', EnsureTeamMembership::class])
     ->group(function () {
         Route::livewire('onboarding', 'pages::teams.onboarding')->name('teams.onboarding');
-        Route::view('dashboard', 'dashboard')
-            ->middleware(EnsureBusinessOnboarding::class)
+        Route::get('dashboard', DashboardController::class)
+            ->middleware([EnsureBusinessOnboarding::class, 'can:viewDashboard,current_team'])
             ->name('dashboard');
         Route::livewire('categories', 'pages::categories.index')
             ->middleware(EnsureBusinessOnboarding::class)
@@ -39,6 +40,9 @@ Route::prefix('{current_team}')
         Route::livewire('loyverse', 'pages::loyverse.index')
             ->middleware([EnsureBusinessOnboarding::class, 'can:syncLoyverse,current_team'])
             ->name('loyverse.index');
+        Route::livewire('action-center', 'pages::recommendations.index')
+            ->middleware([EnsureBusinessOnboarding::class, 'can:viewRecommendations,current_team'])
+            ->name('recommendations.index');
         Route::get('imports', fn (Team $current_team) => to_route('transactions.index', $current_team))
             ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
             ->name('imports.index');
