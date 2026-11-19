@@ -1,5 +1,161 @@
 # AGOS implementation status
 
+## P5-T02 - Action Center UI - 20 November 2026
+
+**Verified.** Upgraded the existing Action Center single-file Livewire page to
+consume `RecommendationService::forTeam()` and its existing evidence-reference
+map. P5-T01 services and financial rules remain unchanged. The page uses the
+shared AGOS shell, Flux controls, cards, semantic priority/classification
+labels and decimal-string PHP formatting. It displays service ordering,
+rationales, outstanding amounts or projected exposure, risk/due dates,
+threshold details and per-recommendation limitations.
+
+Invoice and bill links open the existing independently authorized Team-scoped
+document details. Calculation links target a keyboard-focusable evidence
+section built from the same authorized recommendation response, including
+confirmed current cash, threshold, maximum gap and an expandable daily
+classification table. Missing absolute cash or threshold evidence displays
+Unavailable rather than a fabricated zero. Confirmed, expected, uncertain and
+optional classifications are explained, and forecasted collections are never
+presented as confirmed cash. There is no financial arithmetic in Livewire or
+JavaScript.
+
+Missing verified opening cash, incomplete/stale Loyverse synchronization,
+last successful sync time and incomplete committed imports are disclosed.
+The empty state states that no action was identified and explicitly does not
+assure cash safety. Refresh/retry regenerates evidence, provides loading and
+success feedback, and disables duplicate clicks. Financial-query failures show
+a safe retry state without exception details. Evidence/report arrays remain
+server-rendered view data, not editable Livewire properties.
+
+The existing route already applies authentication, verification, Team
+membership, onboarding and recommendation permission middleware, and the
+sidebar already gates Action Center navigation. These protections were
+preserved. Mount, explicit refresh and every render independently reload and
+authorize the actor/Team. Team context is locked. Revoked memberships, global
+System Administrators, personal workspaces, incomplete businesses, foreign
+Teams and attempted property tampering are covered by tests. No AI provider
+was implemented or called; UI tests assert no outgoing HTTP requests.
+
+Changed files for this task:
+
+- `resources/views/pages/recommendations/⚡index.blade.php`
+- `resources/views/components/php-amount.blade.php`
+- `tests/Feature/Financial/ActionCenterUiTest.php`
+- `docs/implementation-status.md`
+
+Verification: **241 passed, 1,076 assertions, two expected PostgreSQL-only
+skips** (243 tests total). All 20 new UI cases passed, covering rendering and
+order, threshold guidance, missing/stale/incomplete data, evidence links and
+isolation, refresh, failure/retry, permissions, tampering and decimal formatting
+at the storage limit. Existing tests were preserved. Full Pint `--test`,
+PHPStan (zero errors), Vite production build, configured PostgreSQL migration
+status (all applied), and `git diff --check` passed. Vite retains its existing
+optional `fontaine` notice. The two concurrency cases require PostgreSQL row
+locking and were skipped by the default SQLite suite; this task did not run a
+separate PostgreSQL suite or introduce persistent data/migrations.
+
+Chrome review used an isolated SQLite fixture database and production assets
+at 1440, 768 and 390 CSS pixels. Cards fit without page overflow; the wide
+daily table stays within its labeled horizontal scroll region. Keyboard Enter
+followed calculation and invoice evidence links, the calculation anchor
+received focus, Space expanded the forecast, and focused controls showed a
+2px outline. Network throttling verified loading feedback and disabled
+refresh. Screenshots reviewed desktop/mobile layout, dark-mode cards,
+incomplete-data warnings and safe failure/retry. Browser results and
+screenshots are local ignored artifacts under
+`storage/logs/action-center-review/`; no development financial records were
+used. A comprehensive screen-reader audit was not performed.
+
+Limitations: this UI uses the service's default 30-day period and current,
+response-local calculation evidence, not immutable historical report
+snapshots. P5-T01's forecast assumptions and freshness limitations still apply.
+No AI explanations, provider calls or financial write actions were added.
+Earlier P5-T01 and unrelated environment-template contributions were preserved.
+
+**Next task:** P5-T03, pending explicit approval. No P5-T03 work was begun.
+
+## P5-T01 - Deterministic evidence-linked recommendation engine - 20 November 2026
+
+**Verified.** Extended the existing `RecommendationService` without replacing
+the earlier Action Center contribution or changing P4 financial services.
+`forTeam(User, Team, days: 30)` returns a read-only deterministic snapshot for
+7/14/30/60/90 days, independently reloading and authorizing the actor and Team.
+Owner, Manager and Bookkeeper can read it; global System Administrators,
+nonmembers, revoked memberships and incomplete businesses are denied.
+
+Rules implemented:
+
+- Negative current/projected cash: Critical review of the cash shortfall,
+  using the first negative daily balance supplied by `CashFlowService`.
+- Cash-safety threshold risk: High review of discretionary commitments and
+  payment timing, using the engine's earliest crossing and maximum cash gap.
+  A negative-cash candidate subsumes this warning and retains both dates and
+  threshold amounts, avoiding duplicate cash-risk advice.
+- Overdue invoices and supplier bills: High collection/payment review.
+- Invoices due today and supplier bills due today or within the selected
+  forecast period: Normal review. Settled balances are excluded, and partial
+  settlements use `Obligation::balance()` without duplicating its arithmetic.
+
+Priority sorts by severity (Critical, High, Normal), earliest relevant date,
+largest decimal exposure, then stable candidate ID. Exposure is an outstanding
+amount, first negative balance magnitude, or maximum threshold gap; it is not
+a promised cash benefit. All candidates are advisory and have a null
+`cash_effect`. The engine never executes actions or writes financial records.
+
+The result contains `mode`, Team/currency, generation time, business as-of and
+period-end dates, status/message, `recommendations`, `evidence`, `limitations`,
+history completeness and synchronization freshness. Each recommendation has
+an action, rule/ID, priority, rationale/reason, decimal amount(s), relevant
+date(s), `evidence_references`, advisory status and limitations. Record
+references use `team:{id}:{invoice|bill}:{record_id}` and resolve in the
+response's evidence map to a Team-scoped record and its outstanding-balance
+result. Calculation references use `team:{id}:cash_flow:{as_of}:{period_end}`
+and resolve to the authorized `CashFlowService` result in that same map.
+References are response-local, not immutable historical report IDs or bearer
+authorization. Regenerate and reauthorize before display; no external evidence
+or caller-provided financial values are accepted by this service.
+
+Missing/unverified/not-yet-effective opening cash suppresses unsupported
+balance-risk claims while preserving supported obligation reviews. Results
+carry cash-engine stale-sync limitations, last successful sync timestamps,
+incomplete committed CSV-history warnings and uncertain-collection warnings.
+Uncertain collections remain forecast assumptions, never confirmed cash.
+An empty result says no action was identified from available evidence and
+explicitly avoids assuring cash safety.
+
+Known limits: the engine preserves the existing forecast's due-date assumptions
+and does not independently reschedule overdue obligations or model collection
+failure. It does not certify manual-record completeness or impose an invented
+sync-age freshness cutoff. No negotiated deferrals, purchase alternatives,
+deposit amounts, cash savings or AI explanations are invented. ScenarioService
+was inspected and remains unchanged; hypothetical scenario inputs are not
+accepted as actual recommendation evidence. No new persistence or migrations
+were introduced.
+
+Changed files: `app/Services/RecommendationService.php`,
+`app/Support/RecommendationPriority.php`,
+`tests/Feature/Financial/RecommendationEngineTest.php`,
+`tests/Unit/RecommendationPriorityTest.php`, and this status document.
+The 16 new tests cover rule boundaries, partial balances, decimal priority
+comparisons, cash-service delegation, evidence resolution, deterministic
+ordering, no-write snapshots, uncertainty, unavailable history, freshness,
+membership revocation, stale actor security state, cross-Team attempts,
+incomplete onboarding and direct Livewire refresh authorization. Existing P4
+reconciliation and scenario tests were preserved.
+
+Verification: full default SQLite suite **221 passed, 955 assertions, two
+expected PostgreSQL-only skips** (223 tests total). Full Pint `--test`, PHPStan
+(zero errors), Vite production build, configured PostgreSQL migration status
+(all applied), and `git diff --check` passed. Vite retains the existing optional
+`fontaine` font-fallback notice. PostgreSQL-specific concurrency tests were not
+run in this task. No UI was changed or browser review performed.
+
+**Next task:** P5-T02, pending approval. The existing UI and dashboard retain
+their due/overdue obligation-only `candidates()` compatibility projection;
+P5-T02 should consume `forTeam()` to display cash risks, upcoming bills,
+evidence and limitations. No P5-T02 UI or AI-provider integration was begun.
+
 ## P4-T06 - Verified opening-balance and cash-history completeness workflow - 20 November 2026
 
 **Verified.** Teams now persist an Owner-confirmed decimal opening cash
