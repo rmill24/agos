@@ -28,6 +28,10 @@ class ScenarioUiTest extends TestCase
             ->call('runScenario')
             ->assertHasNoErrors()
             ->assertSee('Hypothetical result only')
+            ->assertSee('text-brand-900', false)
+            ->assertSee('Baseline forecast')
+            ->assertSee('Scenario forecast')
+            ->assertSee('data-scenario-comparison-chart', false)
             ->assertSee('Persisted actual records were not modified');
     }
 
@@ -64,5 +68,28 @@ class ScenarioUiTest extends TestCase
         $otherTeam->members()->attach($member, ['role' => TeamRole::Manager]);
 
         $this->actingAs($member)->get(route('scenarios.index', $team))->assertForbidden();
+    }
+
+    public function test_owner_can_run_purchase_affordability_and_sees_missing_history_limitation(): void
+    {
+        $owner = User::factory()->create();
+        $team = Team::factory()->create(['onboarding_completed_at' => now()]);
+        $team->members()->attach($owner, ['role' => TeamRole::Owner]);
+
+        Livewire::actingAs($owner)
+            ->test('pages::scenarios.index', ['current_team' => $team])
+            ->set('scenarioType', 'purchase_affordability')
+            ->set('amount', '30.00')
+            ->set('date', now('Asia/Manila')->addDay()->toDateString())
+            ->set('paymentDays', '0')
+            ->set('relatedIncome', '40.00')
+            ->set('delayDays', '3')
+            ->set('reductionPercentage', '50.00')
+            ->set('depositAmount', '10.00')
+            ->call('runScenario')
+            ->assertHasNoErrors()
+            ->assertSee('Purchase now')
+            ->assertSee('Reduce purchase amount')
+            ->assertSee('Affordability cannot be concluded');
     }
 }

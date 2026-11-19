@@ -108,6 +108,62 @@ class ScenarioServiceTest extends TestCase
         app(ScenarioService::class)->run($owner, $team, 'expense_increase', ['forecast_days' => 7, 'amount' => '1.001', 'date' => '2026-11-02'], CarbonImmutable::parse('2026-11-01', 'Asia/Manila'));
     }
 
+    public function test_comparison_reports_cash_and_threshold_impact_with_verified_opening_balance(): void
+    {
+        [$owner, $team] = $this->business();
+        $team->update(['cash_safety_threshold' => '80.00']);
+
+        $comparison = app(ScenarioService::class)->compare($owner, $team, 'expense_increase', [
+            'forecast_days' => 7, 'amount' => '30.00', 'date' => '2026-11-02',
+        ], CarbonImmutable::parse('2026-11-01', 'Asia/Manila'), '100.00');
+
+        $this->assertSame('calculated', $comparison['impact']['status']);
+        $this->assertSame('-30.00', $comparison['impact']['projectedCashDelta']);
+        $this->assertSame('10.00', $comparison['impact']['cashGapDelta']);
+        $this->assertNull($comparison['impact']['earliestShortfall']['baseline']);
+        $this->assertSame('2026-11-02', $comparison['impact']['earliestShortfall']['scenario']);
+    }
+
+    public function test_purchase_affordability_returns_four_read_only_alternatives_and_explains_missing_history(): void
+    {
+        [$owner, $team] = $this->business();
+        $team->update(['cash_safety_threshold' => '80.00']);
+        $before = Transaction::where('team_id', $team->id)->count();
+
+        $analysis = app(ScenarioService::class)->purchaseAffordability($owner, $team, [
+            'forecast_days' => 14,
+            'amount' => '30.00',
+            'date' => '2026-11-02',
+            'payment_days' => 0,
+            'related_income' => '40.00',
+            'delay_days' => 3,
+            'reduction_percentage' => '50.00',
+            'deposit_amount' => '10.00',
+        ], CarbonImmutable::parse('2026-11-01', 'Asia/Manila'));
+
+        $this->assertSame(['purchase_now', 'delay_purchase', 'reduce_purchase', 'request_deposit'], array_column($analysis['alternatives'], 'key'));
+        $this->assertSame('Insufficient verified opening history for an affordability conclusion.', $analysis['alternatives'][0]['affordability']['reason']);
+        $this->assertNull($analysis['alternatives'][0]['affordability']['affordable']);
+        $this->assertContains('Affordability cannot be concluded without a verified opening balance or complete cash history.', $analysis['limitations']);
+        $this->assertSame($before, Transaction::where('team_id', $team->id)->count());
+        $this->assertFalse($analysis['persisted']);
+    }
+
+    public function test_purchase_reduction_can_be_affordable_when_opening_balance_and_threshold_are_verified(): void
+    {
+        [$owner, $team] = $this->business();
+        $team->update(['cash_safety_threshold' => '80.00']);
+
+        $analysis = app(ScenarioService::class)->purchaseAffordability($owner, $team, [
+            'forecast_days' => 14, 'amount' => '30.00', 'date' => '2026-11-02', 'payment_days' => 0,
+            'related_income' => '0.01', 'delay_days' => 3, 'reduction_percentage' => '50.00', 'deposit_amount' => '10.00',
+        ], CarbonImmutable::parse('2026-11-01', 'Asia/Manila'), '100.00');
+
+        $this->assertFalse($analysis['alternatives'][0]['affordability']['affordable']);
+        $this->assertTrue($analysis['alternatives'][2]['affordability']['affordable']);
+        $this->assertSame('0.01', $analysis['alternatives'][2]['assumptions']['related_income']);
+    }
+
     /** @return array{0: User, 1: Team} */
     private function business(): array
     {

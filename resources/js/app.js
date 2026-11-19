@@ -61,8 +61,69 @@ function initCashFlowCharts() {
     });
 }
 
+function initScenarioComparisonCharts() {
+    document.querySelectorAll('[data-scenario-comparison-chart]').forEach((container) => {
+        if (container.dataset.chartReady === 'true') return;
+        const dataElement = container.querySelector('[data-scenario-comparison-data]');
+        const canvas = container.querySelector('canvas');
+        if (!dataElement || !canvas) return;
+
+        try {
+            const payload = JSON.parse(dataElement.textContent);
+            const baseline = payload.baseline?.daily ?? [];
+            const scenario = payload.scenario?.daily ?? [];
+            const alternatives = payload.alternatives ?? [];
+            const referenceDays = baseline.length > 0 ? baseline : (alternatives[0]?.daily ?? []);
+            const labels = referenceDays.map((day) => day.date);
+            const values = (days) => days.map((day) => day.projectedCash === null ? null : Number(day.projectedCash));
+            const datasets = baseline.length > 0 ? [
+                { type: 'line', label: 'Baseline projected cash', data: values(baseline), borderColor: '#64748b', backgroundColor: '#64748b', borderWidth: 3, pointRadius: 2, spanGaps: false },
+                { type: 'line', label: 'Scenario projected cash', data: values(scenario), borderColor: '#2563eb', backgroundColor: '#2563eb', borderWidth: 3, pointRadius: 2, spanGaps: false },
+            ] : alternatives.map((alternative, index) => ({
+                type: 'line',
+                label: alternative.label,
+                data: values(alternative.daily),
+                borderColor: ['#2563eb', '#7c3aed', '#d97706', '#059669'][index % 4],
+                backgroundColor: ['#2563eb', '#7c3aed', '#d97706', '#059669'][index % 4],
+                borderWidth: 3,
+                pointRadius: 2,
+                spanGaps: false,
+            }));
+            if (payload.threshold !== null) {
+                datasets.push({ type: 'line', label: 'Safety threshold', data: labels.map(() => Number(payload.threshold)), borderColor: '#059669', borderDash: [6, 4], borderWidth: 2, pointRadius: 0 });
+            }
+            new Chart(canvas, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } },
+                        tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${context.parsed.y === null ? 'Unavailable' : `PHP ${context.parsed.y.toFixed(2)}`}` } },
+                    },
+                    scales: { x: { title: { display: true, text: 'Business date' }, ticks: { maxTicksLimit: 8 } }, y: { title: { display: true, text: 'Projected balance (PHP)' } } },
+                },
+            });
+            container.dataset.chartReady = 'true';
+            container.querySelector('[data-scenario-chart-loading]')?.classList.add('hidden');
+        } catch (error) {
+            console.error('Unable to render the scenario comparison chart.', error);
+            container.querySelector('[data-scenario-chart-loading]')?.classList.add('hidden');
+            container.querySelector('[data-scenario-chart-error]')?.classList.remove('hidden');
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', initCashFlowCharts);
+document.addEventListener('DOMContentLoaded', initScenarioComparisonCharts);
 document.addEventListener('livewire:navigated', initCashFlowCharts);
+document.addEventListener('livewire:navigated', initScenarioComparisonCharts);
+document.addEventListener('livewire:initialized', () => {
+    initScenarioComparisonCharts();
+    Livewire.hook('morph.updated', () => requestAnimationFrame(initScenarioComparisonCharts));
+});
 
 // Flux owns the preference and system-theme listener. Animate only an explicit choice.
 window.agosChangeAppearance = function (mode, button, apply) {

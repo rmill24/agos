@@ -1,5 +1,32 @@
 # AGOS implementation status
 
+## P4-T04 - Baseline-versus-scenario comparisons and purchase affordability - 19 November 2026
+
+**Verified.** The transient Scenario Simulator now exposes server-calculated
+baseline-versus-scenario comparisons for projected cash, cash-gap impact,
+threshold crossings, and earliest shortfall dates. Purchase-affordability
+analysis evaluates purchase now, delayed purchase, reduced amount, and
+customer-deposit alternatives as independent hypothetical scenarios. Each
+alternative includes its assumptions, dates, limitations, and an explicit
+affordability result only when verified opening history and a configured cash
+safety threshold support that conclusion.
+
+Comparison summaries are rendered side by side with a responsive Chart.js
+comparison and accessible semantic fallback content. Scenario calculations
+continue to delegate to CashFlowService and BigDecimal arithmetic; no actual
+transactions, invoices, bills, payments, or saved scenario records are
+created or changed. Team, onboarding, Owner/Manager, and independent service
+and Livewire authorization protections remain in place.
+
+The full suite passed 195 tests with 798 assertions and two expected
+PostgreSQL-only skips. Pint, PHPStan, migration status, the Vite production
+build, and `git diff --check` passed. Browser automation is not installed in
+this repository, so visual review was limited to the rendered Livewire
+assertions and responsive/accessibility source checks.
+
+**Next task:** P4-T05 - test calculations against independent fixtures and
+assert scenario immutability. Do not begin until approved.
+
 ## P4-T03 — Isolated scenario simulation — 19 November 2026
 
 **Verified.** Owner and Manager users can run transient, Team-scoped scenarios

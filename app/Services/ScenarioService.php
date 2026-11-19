@@ -31,7 +31,7 @@ class ScenarioService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function run(User $actor, Team $team, string $type, array $input, ?CarbonImmutable $asOf = null): array
+    public function run(User $actor, Team $team, string $type, array $input, ?CarbonImmutable $asOf = null, ?string $openingBalance = null): array
     {
         $team = $team->fresh() ?? abort(404);
         Gate::forUser($actor)->authorize('runScenarios', $team);
@@ -41,7 +41,7 @@ class ScenarioService
         $asOf ??= CarbonImmutable::now($team->timezone ?: 'Asia/Manila')->startOfDay();
         $days = $this->days($input);
         $end = $asOf->addDays($days - 1);
-        $baseline = $this->cashFlow->forTeam($actor, $team, null, $asOf, $days);
+        $baseline = $this->cashFlow->forTeam($actor, $team, $openingBalance, $asOf, $days);
         $hypotheticalItems = [];
         $overrides = [];
         $limitations = [];
@@ -104,6 +104,11 @@ class ScenarioService
                 $incomeDate = CarbonImmutable::parse($date, $team->timezone)->addDays($paymentDays)->toDateString();
                 $hypotheticalItems[] = $this->hypothetical($date, $amount, 'outflow', 'optional_outflow', 'Hypothetical proposed purchase');
                 $hypotheticalItems[] = $this->hypothetical($incomeDate, $relatedIncome, 'inflow', 'optional_inflow', 'Hypothetical related income');
+                if (isset($input['deposit_amount']) && $input['deposit_amount'] !== '') {
+                    $deposit = $this->decimal($input, 'deposit_amount');
+                    $hypotheticalItems[] = $this->hypothetical($date, $deposit, 'inflow', 'optional_inflow', 'Hypothetical requested customer deposit');
+                    $normalized['depositAmount'] = $this->money($deposit);
+                }
                 $normalized += ['amount' => $this->money($amount), 'hypotheticalDate' => $date, 'paymentDays' => $paymentDays, 'relatedIncome' => $this->money($relatedIncome), 'relatedIncomeDate' => $incomeDate];
                 if ($incomeDate > $end->toDateString()) {
                     $limitations[] = 'The related income falls outside the selected forecast period.';
@@ -111,7 +116,7 @@ class ScenarioService
                 break;
         }
 
-        $result = $this->cashFlow->forTeam($actor, $team, null, $asOf, $days, $hypotheticalItems, $overrides);
+        $result = $this->cashFlow->forTeam($actor, $team, $openingBalance, $asOf, $days, $hypotheticalItems, $overrides);
 
         return [
             'type' => $type,
@@ -119,6 +124,126 @@ class ScenarioService
             'hypotheticalItems' => $hypotheticalItems,
             'limitations' => array_values(array_unique([...$limitations, ...$result['limitations']])),
             'cashFlow' => $result,
+            'persisted' => false,
+        ];
+    }
+
+    /**
+     * Return a baseline and hypothetical result without modifying records.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function compare(User $actor, Team $team, string $type, array $input, ?CarbonImmutable $asOf = null, ?string $openingBalance = null): array
+    {
+        $team = $team->fresh() ?? abort(404);
+        Gate::forUser($actor)->authorize('runScenarios', $team);
+        $asOf ??= CarbonImmutable::now($team->timezone ?: 'Asia/Manila')->startOfDay();
+        $days = (int) ($input['forecast_days'] ?? 30);
+        $baseline = $this->cashFlow->forTeam($actor, $team, $openingBalance, $asOf, $days);
+        $scenario = $this->run($actor, $team, $type, $input, $asOf, $openingBalance);
+        $scenarioFlow = $scenario['cashFlow'];
+        $baselineEnd = $this->endingCash($baseline);
+        $scenarioEnd = $this->endingCash($scenarioFlow);
+        $gapDelta = $this->delta($baseline['cashGap'], $scenarioFlow['cashGap']);
+        $cashDelta = $this->delta($baselineEnd, $scenarioEnd);
+        $limitations = array_values(array_unique([...$baseline['limitations'], ...$scenario['limitations']]));
+
+        return [
+            'type' => $type,
+            'inputs' => $scenario['inputs'],
+            'baseline' => $baseline,
+            'scenario' => $scenario,
+            'impact' => [
+                'projectedCashDelta' => $cashDelta,
+                'cashGapDelta' => $gapDelta,
+                'threshold' => $baseline['threshold'],
+                'earliestShortfall' => ['baseline' => $baseline['earliestShortfallDate'], 'scenario' => $scenarioFlow['earliestShortfallDate']],
+                'status' => $cashDelta === null || $gapDelta === null ? 'insufficient_data' : 'calculated',
+            ],
+            'limitations' => $limitations,
+            'persisted' => false,
+        ];
+    }
+
+    /**
+     * Analyze the four required purchase alternatives as independent scenarios.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function purchaseAffordability(User $actor, Team $team, array $input, ?CarbonImmutable $asOf = null, ?string $openingBalance = null): array
+    {
+        $team = $team->fresh() ?? abort(404);
+        Gate::forUser($actor)->authorize('runScenarios', $team);
+        $asOf ??= CarbonImmutable::now($team->timezone ?: 'Asia/Manila')->startOfDay();
+        $days = $this->days($input);
+        $end = $asOf->addDays($days - 1);
+        $amount = $this->decimal($input, 'amount');
+        $date = $this->futureDate($input, 'date', $asOf, $end);
+        $paymentDays = $this->integer($input, 'payment_days', 0, 365);
+        $relatedIncome = $this->decimal($input, 'related_income');
+        $delayDays = $this->integer($input, 'delay_days', 1, 365);
+        $reductionPercentage = $this->decimal($input, 'reduction_percentage');
+        if (! $reductionPercentage->isLessThan('100.00')) {
+            throw ValidationException::withMessages(['reduction_percentage' => 'Use a reduction below 100 percent so a purchase remains modeled.']);
+        }
+        $deposit = $this->decimal($input, 'deposit_amount');
+        $base = [
+            'amount' => $this->money($amount),
+            'date' => $date,
+            'forecast_days' => $days,
+            'payment_days' => $paymentDays,
+            'related_income' => $this->money($relatedIncome),
+        ];
+        $delayedDate = CarbonImmutable::parse($date, $team->timezone)->addDays($delayDays)->toDateString();
+        if ($delayedDate > $end->toDateString()) {
+            throw ValidationException::withMessages(['delay_days' => 'The delayed purchase must remain inside the selected forecast period.']);
+        }
+        $reducedAmount = $amount->multipliedBy(BigDecimal::of('100.00')->minus($reductionPercentage))->dividedBy('100', 2, RoundingMode::HalfUp)->toScale(2);
+        $alternatives = [
+            ['key' => 'purchase_now', 'label' => 'Purchase now', 'input' => $base],
+            ['key' => 'delay_purchase', 'label' => 'Delay purchase', 'input' => [...$base, 'date' => $delayedDate]],
+            ['key' => 'reduce_purchase', 'label' => 'Reduce purchase amount', 'input' => [...$base, 'amount' => $this->money($reducedAmount)]],
+            ['key' => 'request_deposit', 'label' => 'Request a customer deposit', 'input' => [...$base, 'deposit_amount' => $this->money($deposit)]],
+        ];
+        $results = [];
+        foreach ($alternatives as $alternative) {
+            $comparison = $this->compare($actor, $team, 'proposed_purchase', $alternative['input'], $asOf, $openingBalance);
+            $results[] = [
+                'key' => $alternative['key'],
+                'label' => $alternative['label'],
+                'assumptions' => $alternative['input'],
+                'comparison' => $comparison,
+                'affordability' => $this->affordability($comparison),
+            ];
+        }
+
+        $limitations = [];
+        if ($delayedDate > $end->toDateString()) {
+            $limitations[] = 'The delayed purchase date falls outside the selected forecast period.';
+        }
+        if ($openingBalance === null) {
+            $limitations[] = 'Affordability cannot be concluded without a verified opening balance or complete cash history.';
+        }
+        if ($team->cash_safety_threshold === null) {
+            $limitations[] = 'Affordability cannot be compared against a threshold until the business configures one.';
+        }
+
+        return [
+            'type' => 'purchase_affordability',
+            'assumptions' => [
+                'forecastDays' => $days,
+                'purchaseAmount' => $this->money($amount),
+                'purchaseDate' => $date,
+                'paymentDays' => $paymentDays,
+                'relatedIncome' => $this->money($relatedIncome),
+                'delayDays' => $delayDays,
+                'reductionPercentage' => $this->money($reductionPercentage),
+                'depositAmount' => $this->money($deposit),
+            ],
+            'alternatives' => $results,
+            'limitations' => array_values(array_unique($limitations)),
             'persisted' => false,
         ];
     }
@@ -216,5 +341,38 @@ class ScenarioService
     private function money(BigDecimal $amount): string
     {
         return $amount->toScale(2)->toString();
+    }
+
+    /** @param array<string, mixed> $flow */
+    private function endingCash(array $flow): ?string
+    {
+        return $flow['daily'][count($flow['daily']) - 1]['projectedCash'] ?? null;
+    }
+
+    private function delta(?string $baseline, ?string $scenario): ?string
+    {
+        if ($baseline === null || $scenario === null) {
+            return null;
+        }
+
+        return $this->money(BigDecimal::of($scenario)->minus($baseline));
+    }
+
+    /**
+     * @param  array<string, mixed>  $comparison
+     * @return array{affordable: bool|null, reason: string}
+     */
+    private function affordability(array $comparison): array
+    {
+        if ($comparison['impact']['status'] === 'insufficient_data') {
+            return ['affordable' => null, 'reason' => 'Insufficient verified opening history for an affordability conclusion.'];
+        }
+        if ($comparison['scenario']['cashFlow']['threshold'] === null) {
+            return ['affordable' => null, 'reason' => 'No business cash-safety threshold is configured.'];
+        }
+
+        $shortfall = $comparison['scenario']['cashFlow']['earliestShortfallDate'] !== null;
+
+        return ['affordable' => ! $shortfall, 'reason' => $shortfall ? 'Projected cash falls below the configured threshold.' : 'No threshold crossing was detected in the selected period.'];
     }
 }
