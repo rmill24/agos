@@ -40,6 +40,8 @@ new #[Title('Business Profile')] class extends Component
 
     public string $timezone = 'Asia/Manila';
 
+    public string $cashSafetyThreshold = '';
+
     public function mount(): void
     {
         $team = Auth::user()->currentTeam;
@@ -78,6 +80,7 @@ new #[Title('Business Profile')] class extends Component
         $this->countryCode = $team->country_code ?? 'PH';
         $this->currencyCode = $team->currency_code ?? 'PHP';
         $this->timezone = $team->timezone ?? 'Asia/Manila';
+        $this->cashSafetyThreshold = $team->cash_safety_threshold ?? '';
     }
 }; ?>
 
@@ -99,6 +102,7 @@ new #[Title('Business Profile')] class extends Component
             <flux:input wire:model="countryCode" :label="__('Country code')" maxlength="2" required />
             <flux:input wire:model="currencyCode" :label="__('Currency')" maxlength="3" readonly required />
             <flux:input wire:model="timezone" :label="__('Business timezone')" required />
+            <flux:input wire:model="cashSafetyThreshold" :label="__('Cash-safety threshold (PHP)')" inputmode="decimal" hint="The minimum projected cash balance AGOS should protect." />
             <flux:button type="submit" variant="primary">{{ __('Save business profile') }}</flux:button>
         </form>
     </x-pages::settings.layout>

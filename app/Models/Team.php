@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property string $country_code
  * @property string $currency_code
  * @property string $timezone
+ * @property string|null $cash_safety_threshold
  * @property Carbon|null $onboarding_completed_at
  * @property string $slug
  * @property bool $is_personal
@@ -60,6 +61,7 @@ use Illuminate\Support\Carbon;
     'currency_code',
     'timezone',
     'onboarding_completed_at',
+    'cash_safety_threshold',
 ])]
 class Team extends Model
 {
@@ -207,6 +209,7 @@ class Team extends Model
         return [
             'is_personal' => 'boolean',
             'onboarding_completed_at' => 'datetime',
+            'cash_safety_threshold' => 'decimal:2',
         ];
     }
 

@@ -1,5 +1,27 @@
 # AGOS implementation status
 
+## P4-T01 — Deterministic cash engine — 19 November 2026
+
+**Verified.** Team-scoped cash calculations now reconcile confirmed ledger
+movements with decimal-safe `BigDecimal` arithmetic, classify future ledger
+movements and outstanding obligations as confirmed, expected, or uncertain,
+and calculate projected balances, threshold crossings, earliest shortfall, and
+cash gap when an explicit opening balance is supplied. Missing opening history,
+missing threshold settings, and incomplete Loyverse synchronization are
+disclosed instead of being treated as confirmed absolute cash. The cash-safety
+threshold is persisted on the canonical Team and is owner-managed through
+onboarding and Business Profile settings. Payments are not double-counted:
+their linked ledger transactions are the only confirmed cash input.
+
+The focused cash/profile tests passed 9 tests with 26 assertions. The full
+suite passed 177 tests with 731 assertions and two PostgreSQL-only skips.
+PHPStan, Pint, migration status, the production asset build, and
+`git diff --check` passed. Migration
+`2026_11_19_000007_add_cash_safety_threshold_to_teams` is applied.
+
+**Next task:** P4-T02 — integrate the verified engine into dashboard summaries
+and accessible Chart.js forecast views.
+
 ## P3-T05 — Loyverse connection settings — 19 November 2026
 
 **Verified.** Business Owners can connect a Team by entering one Loyverse access token; AGOS loads the merchant, stores, and payment types server-side and presents labeled selections instead of requiring provider IDs. Connections can be saved and cleared from the Loyverse sync page. Access tokens are encrypted in the database, masked in the UI, excluded from audit metadata, and existing `.env` connections remain a fallback. The read-only adapter verifies the merchant and PHP currency and loads metadata without importing receipts. The sync service resolves database connections first and preserves existing quarantine, checkpoint, and duplicate-protection behavior.

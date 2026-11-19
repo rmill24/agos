@@ -31,6 +31,7 @@ class BusinessProfileService
             'countryCode' => ['required', 'string', 'size:2', 'in:PH'],
             'currencyCode' => ['required', 'string', 'size:3', 'in:PHP'],
             'timezone' => ['required', 'timezone'],
+            'cashSafetyThreshold' => ['nullable', 'regex:/^\d{1,13}(?:\.\d{1,2})?$/D'],
         ];
     }
 
@@ -95,6 +96,7 @@ class BusinessProfileService
             'country_code' => $profile['countryCode'],
             'currency_code' => 'PHP',
             'timezone' => $profile['timezone'],
+            'cash_safety_threshold' => $profile['cashSafetyThreshold'] ?: null,
         ];
     }
 }

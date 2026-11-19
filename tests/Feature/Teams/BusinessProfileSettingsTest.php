@@ -30,6 +30,7 @@ class BusinessProfileSettingsTest extends TestCase
         $team = Team::factory()->create([
             'onboarding_completed_at' => now(),
             'legal_name' => 'Old Legal Name',
+            'cash_safety_threshold' => null,
         ]);
         $team->members()->attach($owner, ['role' => TeamRole::Owner]);
         $owner->switchTeam($team);
@@ -44,6 +45,7 @@ class BusinessProfileSettingsTest extends TestCase
             ->set('city', 'Cebu City')
             ->set('province', 'Cebu')
             ->set('postalCode', '6000')
+            ->set('cashSafetyThreshold', '25000.00')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -53,6 +55,7 @@ class BusinessProfileSettingsTest extends TestCase
             'legal_name' => 'Updated Legal Name',
             'business_type' => 'Services',
             'city' => 'Cebu City',
+            'cash_safety_threshold' => '25000.00',
         ]);
     }
 

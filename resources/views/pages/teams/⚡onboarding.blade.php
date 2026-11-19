@@ -38,6 +38,8 @@ new #[Title('Business onboarding')] class extends Component
 
     public string $timezone = 'Asia/Manila';
 
+    public string $cashSafetyThreshold = '';
+
     public function mount(Team $current_team): void
     {
         Gate::authorize('completeOnboarding', $current_team);
@@ -56,6 +58,7 @@ new #[Title('Business onboarding')] class extends Component
         $this->countryCode = $current_team->country_code ?? 'PH';
         $this->currencyCode = $current_team->currency_code ?? 'PHP';
         $this->timezone = $current_team->timezone ?? 'Asia/Manila';
+        $this->cashSafetyThreshold = $current_team->cash_safety_threshold ?? '';
     }
 
     public function completeOnboarding(BusinessProfileService $profileService): void
@@ -90,6 +93,7 @@ new #[Title('Business onboarding')] class extends Component
             <flux:input wire:model="countryCode" :label="__('Country code')" maxlength="2" required />
             <flux:input wire:model="currencyCode" :label="__('Currency')" maxlength="3" readonly required />
             <flux:input wire:model="timezone" :label="__('Business timezone')" required />
+            <flux:input wire:model="cashSafetyThreshold" :label="__('Cash-safety threshold (PHP)')" inputmode="decimal" hint="The minimum projected cash balance AGOS should protect." />
             <flux:button type="submit" variant="primary">{{ __('Complete onboarding') }}</flux:button>
         </form>
     </x-pages::settings.layout>
