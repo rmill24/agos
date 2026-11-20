@@ -1,5 +1,13 @@
 # AGOS implementation status
 
+## P6-T02 — Render Gotenberg configuration — in progress
+
+The [Render Blueprint](../render.yaml) specifies the v9 Chromium image, the Free instance type, the Render port binding, Basic Auth, one active conversion, two queued requests, a 20-second API timeout and the public health path. The [setup instructions](../README.md#render-pdf-service) cover the backend-only `php artisan gotenberg:check` command. The command checks health, expects an HTTP 401 on anonymous conversion, and validates the response type and PDF boundary markers from an authenticated synthetic conversion.
+
+The Blueprint passed Render's published JSON Schema. All 12 provider tests passed with HTTP fakes. The full default suite passed 311 tests with 1,370 assertions and skipped two PostgreSQL-only cases. Pint, PHPStan and the production build passed. Local PostgreSQL migrations are current.
+
+**Live verification pending.** The configured URL is the example hostname and the local Basic Auth values are empty. Verify the deployed configuration and run the command against the intended Render service before checking off P6-T02. P6-T01 remains the last completed task.
+
 ## P6-T01 — Financing-readiness checklist and report — 20 November 2026
 
 **Verified.** Owners, managers and bookkeepers can open Financing readiness in the workspace. The live HTML report assesses seven groups of Team records, identifies each source and latest evidence date, and explains missing, incomplete or old evidence. The inclusive 30-day Manila review window measures recency only. The selected supporting documents are Loyverse receipts linked to published ledger entries. Cash-position evidence requires a verified opening balance. The report reads existing records and needs no migration.

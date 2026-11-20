@@ -177,6 +177,12 @@ php artisan queue:work database --queue=default
 
 ## AGOS conventions
 
+### Render PDF service
+
+The repository's `render.yaml` describes a 512 MiB Gotenberg web service on the Free instance type. For an existing service, match its image, health-check path and environment settings to the Blueprint. Supply the two Basic Auth secrets in Render. Set the corresponding `GOTENBERG_USERNAME` and `GOTENBERG_PASSWORD` in the local untracked `.env`, and set `GOTENBERG_BASE_URL` to the service's HTTPS origin. If Laravel configuration is cached, refresh it after changing these values.
+
+Run `php artisan gotenberg:check` from the AGOS directory. It checks Chromium health, confirms that anonymous conversion receives HTTP 401, and submits a small synthetic HTML page with Basic Auth. A successful exit confirms a PDF response. No business records are needed. [Gotenberg health](https://gotenberg.dev/docs/system/health) · [HTML conversion](https://gotenberg.dev/docs/chromium/convert-html) · [Render Blueprint reference](https://render.com/docs/blueprint-spec)
+
 ### Financing readiness
 
 After business onboarding, Owners, Managers and Bookkeepers can open **Financing readiness** in the workspace sidebar. Choose **Refresh report** to reassess the current Team’s records. The report covers transactions, income, expenses, customer invoices, supplier bills, cash-flow evidence and supporting receipts. Its summary counts record groups with recent evidence. Loan approval and financing eligibility are outside its scope.

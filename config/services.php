@@ -22,6 +22,13 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'gotenberg' => [
+        'base_url' => env('GOTENBERG_BASE_URL'),
+        'username' => env('GOTENBERG_USERNAME'),
+        'password' => env('GOTENBERG_PASSWORD'),
+        'timeout' => min(20, max(1, (int) env('GOTENBERG_TIMEOUT', 20))),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

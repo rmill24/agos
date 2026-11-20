@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: agos-gotenberg
+    runtime: image
+    image:
+      url: docker.io/gotenberg/gotenberg:9-chromium
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: API_PORT_FROM_ENV
+        value: PORT
+      - key: API_ENABLE_BASIC_AUTH
+        value: "true"
+      - key: GOTENBERG_API_BASIC_AUTH_USERNAME
+        sync: false
+      - key: GOTENBERG_API_BASIC_AUTH_PASSWORD
+        sync: false
+      - key: CHROMIUM_MAX_CONCURRENCY
+        value: "1"
+      - key: CHROMIUM_MAX_QUEUE_SIZE
+        value: "2"
+      - key: API_TIMEOUT
+        value: 20s
