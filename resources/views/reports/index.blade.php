@@ -19,36 +19,6 @@
         <p class="agos-muted text-sm">For an individual invoice, open its details in <a class="agos-link" href="{{ route('invoices.index', $team) }}">Invoices</a>.
             @can('runScenarios', $team) Save a hypothetical comparison from the <a class="agos-link" href="{{ route('scenarios.index', $team) }}">Scenario Simulator</a>. @endcan
         </p>
-        <section class="agos-card p-5" aria-labelledby="saved-reports">
-            <h2 class="font-semibold" id="saved-reports">Saved reports</h2>
-            <ul class="divide-y divide-slate-200 dark:divide-slate-700">
-                @forelse ($reports as $report)
-                    <li class="py-3"><a class="agos-link" href="{{ route('reports.show', [$team, $report->id]) }}">{{ $titles[$report->kind] }} #{{ $report->id }}</a>
-                        <p class="agos-muted text-sm">{{ $report->created_at->setTimezone('Asia/Manila')->format('M j, Y · g:i A') }} PHT</p>
-                        @if (! $report->pdf || in_array($report->pdf->status, ['converted', 'failed'], true))
-                            <form method="post" action="{{ route('reports.pdf.request', [$team, $report->id]) }}" class="mt-2">
-                                @csrf
-                                @if ($report->pdf?->status === 'failed')
-                                    <p class="agos-muted mb-2 text-sm">PDF generation failed. The saved preview is available.</p>
-                                    <input type="hidden" name="retry" value="1">
-                                    <flux:button size="sm" type="submit">Retry PDF</flux:button>
-                                @else
-                                    <flux:button size="sm" type="submit">{{ $report->pdf ? 'Verify PDF' : 'Generate PDF' }}</flux:button>
-                                @endif
-                            </form>
-                        @elseif ($report->pdf->status === 'verified')
-                            <a class="agos-link text-sm" href="{{ route('reports.pdf.download', [$team, $report->id]) }}">Download verified PDF</a>
-                        @elseif ($report->pdf->status === 'retry_queued')
-                            <p class="text-sm">PDF waiting for one more conversion attempt.</p>
-                        @else
-                            <p class="text-sm">PDF {{ $report->pdf->status }}.</p>
-                        @endif
-                    </li>
-                @empty
-                    <li class="agos-muted py-3">Your business has no saved reports yet.</li>
-                @endforelse
-            </ul>
-            {{ $reports->links() }}
-        </section>
+        <livewire:reports.pdf-status-list :team="$team" />
     </section>
 </x-layouts::app>

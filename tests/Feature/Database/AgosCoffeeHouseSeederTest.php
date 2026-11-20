@@ -39,7 +39,7 @@ it('seeds a coherent AGOS Coffee House demonstration dataset', function () {
         ->and(Transaction::where('team_id', $team->id)->count())->toBe(75);
 
     $start = CarbonImmutable::now('Asia/Manila')->startOfMonth()->toDateString();
-    expect($team->reportSnapshots()->orderBy('kind')->pluck('kind')->all())->toBe(['cash-flow', 'financing-readiness']);
+    expect($team->reportSnapshots()->count())->toBe(0);
     $today = CarbonImmutable::now('Asia/Manila')->toDateString();
     expect(Transaction::where('team_id', $team->id)->whereDate('transaction_date', '<', $start)->count())->toBe(0)
         ->and(Transaction::where('team_id', $team->id)->whereDate('transaction_date', '>', $today)->count())->toBe(0)

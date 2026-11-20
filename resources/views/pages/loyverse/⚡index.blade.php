@@ -135,7 +135,7 @@ new class extends Component
         $configured = filled($connection['token'] ?? null) && filled($connection['store'] ?? null) && filled($connection['merchant'] ?? null);
         $busy = $latest?->status === 'queued' && $latest->updated_at->gt(now()->subMinutes(3));
         return [
-            'configured' => $configured, 'busy' => $busy,
+            'configured' => $configured, 'busy' => $busy, 'polling' => $latest?->status === 'queued',
             'maskedToken' => app(LoyverseConnectionService::class)->maskedToken($this->team),
             'selectedStoreName' => collect($this->stores)->firstWhere('id', $this->selectedStoreId)['name'] ?? null,
             'lastSuccess' => (clone $runs)->where('status', 'complete')->latest('id')->first(),
@@ -147,7 +147,7 @@ new class extends Component
     }
 }; ?>
 
-<div class="agos-page" @if($busy) wire:poll.5s @endif>
+<div class="agos-page" @if($polling) wire:poll.2s @endif>
     <header class="agos-page-header">
         <div>
             <p class="agos-eyebrow">{{ $team->name }}</p>

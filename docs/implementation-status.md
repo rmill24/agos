@@ -6,7 +6,7 @@
 
 **P6-T06.** A failed conversion leaves the original HTML available. An authorized manual retry starts a new generation of the same PDF record. Duplicate clicks and late jobs from a previous generation do not replace the current attempt. The generation migration was applied locally and verified through rollback and reapplication on isolated PostgreSQL.
 
-**P6-T07.** Coverage includes authentication and role-change audit events, onboarding and Team isolation, ledger and obligation reconciliation, CSV and Loyverse replays, scenario isolation, AI fallback, financing readiness, report permissions and PDF outages. The Coffee House demo includes two saved report previews. The README documents the worker, text extraction dependency, demo and failure tests.
+**P6-T07.** Coverage includes authentication and role-change audit events, onboarding and Team isolation, ledger and obligation reconciliation, CSV and Loyverse replays, scenario isolation, AI fallback, financing readiness, report permissions and PDF outages. The Coffee House demo starts without saved report previews. The README documents the worker, text extraction dependency, demo and failure tests.
 
 Browser recovery used a simulated outage followed by a real authenticated Render conversion of a synthetic receivables report. The verified download contained three pages, 56 invoice rows and a PHP 562.80 total. The report actions were checked at desktop, tablet and mobile widths. Local Chromium output from all seven report templates passed the text and amount verifier.
 
