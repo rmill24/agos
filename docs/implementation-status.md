@@ -1,5 +1,15 @@
 # AGOS implementation status
 
+## P6-T01 — Financing-readiness checklist and report — 20 November 2026
+
+**Verified.** Owners, managers and bookkeepers can open Financing readiness in the workspace. The live HTML report assesses seven groups of Team records, identifies each source and latest evidence date, and explains missing, incomplete or old evidence. The inclusive 30-day Manila review window measures recency only. The selected supporting documents are Loyverse receipts linked to published ledger entries. Cash-position evidence requires a verified opening balance. The report reads existing records and needs no migration.
+
+Changes cover the financing-readiness service, Livewire page, Team policy, route, sidebar and financial feature tests. Authorization tests cover other Teams, revoked membership, incomplete onboarding, global administrators, direct refreshes and locked Team state.
+
+The full suite passed on isolated PostgreSQL 17 with 301 tests and 1,356 assertions. All eight new tests also passed on SQLite. Pint, PHPStan, the Vite build and local migration checks passed. Browser review with isolated demo data covered 1440, 768 and 390 CSS pixels, seven labeled checklist entries, viewport fit and keyboard refresh.
+
+**Next task:** P6-T02, configure and verify the authenticated Render Gotenberg service. External deployment requires user authorization.
+
 ## P5 follow-up - Groq strict-schema compatibility - 20 November 2026
 
 Replaced Groq JSON Object mode with GPT-OSS 20B's strict JSON Schema mode in

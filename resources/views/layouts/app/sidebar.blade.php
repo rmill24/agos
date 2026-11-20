@@ -33,6 +33,9 @@
                             <flux:sidebar.item :icon="$icon" :href="route($page.'.index', $activeTeam)" :current="request()->routeIs($page.'.index')" wire:navigate>{{ $label }}</flux:sidebar.item>
                         @endforeach
                     @endif
+                    @can('viewFinancingReadiness', auth()->user()->currentTeam)
+                        <flux:sidebar.item icon="document-text" :href="route('financing-readiness.index', auth()->user()->currentTeam)" :current="request()->routeIs('financing-readiness.index')" wire:navigate>Financing readiness</flux:sidebar.item>
+                    @endcan
                     @can('syncLoyverse', auth()->user()->currentTeam)
                         <flux:sidebar.item icon="arrow-path" :href="route('loyverse.index', auth()->user()->currentTeam)" :current="request()->routeIs('loyverse.index')" wire:navigate>{{ __('Loyverse sync') }}</flux:sidebar.item>
                     @endcan

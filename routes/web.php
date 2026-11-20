@@ -46,6 +46,9 @@ Route::prefix('{current_team}')
         Route::livewire('action-center', 'pages::recommendations.index')
             ->middleware([EnsureBusinessOnboarding::class, 'can:viewRecommendations,current_team'])
             ->name('recommendations.index');
+        Route::livewire('financing-readiness', 'pages::financing-readiness.index')
+            ->middleware([EnsureBusinessOnboarding::class, 'can:viewFinancingReadiness,current_team'])
+            ->name('financing-readiness.index');
         Route::get('imports', fn (Team $current_team) => to_route('transactions.index', $current_team))
             ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
             ->name('imports.index');

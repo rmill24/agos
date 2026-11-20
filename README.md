@@ -177,6 +177,19 @@ php artisan queue:work database --queue=default
 
 ## AGOS conventions
 
+### Financing readiness
+
+After business onboarding, Owners, Managers and Bookkeepers can open **Financing readiness** in the workspace sidebar. Choose **Refresh report** to reassess the current Team’s records. The report covers transactions, income, expenses, customer invoices, supplier bills, cash-flow evidence and supporting receipts. Its summary counts record groups with recent evidence. Loan approval and financing eligibility are outside its scope.
+
+| Checklist status | How to read it |
+| --- | --- |
+| Recent | The latest evidence falls within the assessment date and the preceding 29 calendar days in Manila. |
+| Out of date | Evidence exists, but its latest date is before the review window. |
+| Missing | AGOS has no matching record dated on or before the assessment date. |
+| Incomplete | The cash-flow summary needs a verified opening balance effective on or before the assessment date. |
+
+Invoice and bill checks use their issue dates. The supporting-receipts check uses the movement date of a posted Loyverse transaction linked to a receipt for the same Team. Review documents held outside AGOS separately.
+
 ### Loyverse receipt adapter
 
 An authorized Business Owner can connect a Team from **Loyverse sync** by entering one Loyverse access token. AGOS loads the merchant, stores, and payment types server-side so the user selects names instead of entering provider IDs. Credentials are encrypted server-side and the token is never displayed in full. Existing local setups may still provide a Team connection through the untracked `.env`: list its numeric Team ID in `LOYVERSE_TEAM_IDS`, then set `LOYVERSE_TEAM_<ID>_ACCESS_TOKEN`, `LOYVERSE_TEAM_<ID>_MERCHANT_ID`, `LOYVERSE_TEAM_<ID>_STORE_ID`, and the comma-separated `LOYVERSE_TEAM_<ID>_COLLECTED_METHOD_IDS`. Database configuration takes precedence over the environment fallback.

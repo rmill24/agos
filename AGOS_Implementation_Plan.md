@@ -135,7 +135,7 @@ Review every new page for visual consistency, responsiveness, accessibility, and
 
 ### P6 — Financing readiness, Render Gotenberg, tests
 
-- **P6-T01:** Implement financing-readiness checklist and report without predicting loan approval.
+- [x] **P6-T01:** Implement financing-readiness checklist and report without predicting loan approval.
 - **P6-T02:** Configure Render Gotenberg v9 **Chromium-only** (`gotenberg/gotenberg:9-chromium`) with the environment variables below. Verify `/health` and authenticated HTTPS calls.
 - **P6-T03:** Implement Blade report templates, authorized HTML preview, and immutable report data snapshots.
 - **P6-T04:** Use Laravel **database queue** with **one PDF worker**, at most **two pending reports**, and no Redis; issue sequential HTML-to-PDF requests from the backend.
