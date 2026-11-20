@@ -3,6 +3,7 @@
 use App\Models\Obligation;
 use App\Models\Team;
 use App\Services\ScenarioService;
+use App\Services\ReportSnapshotService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Gate;
@@ -86,6 +87,18 @@ new #[Title('Scenario Simulator')] class extends Component
     private function permit(): void
     {
         Gate::forUser(auth()->user())->authorize('runScenarios', $this->team->fresh());
+    }
+
+    public function saveReport(ReportSnapshotService $service): void
+    {
+        $this->permit();
+        $this->failure = '';
+        try {
+            $snapshot = $service->create(auth()->user(), $this->team, 'scenario', ['type' => $this->scenarioType] + $this->input());
+            $this->redirectRoute('reports.show', [$this->team, $snapshot->id]);
+        } catch (QueryException) {
+            $this->failure = 'The report could not be saved. Try again.';
+        }
     }
 
     /** @return array<string, mixed> */
@@ -181,6 +194,7 @@ new #[Title('Scenario Simulator')] class extends Component
                 <div class="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100" role="alert">{{ $failure }}</div>
             @endif
             <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="runScenario">Run scenario</flux:button>
+            <flux:button type="button" wire:click="saveReport" wire:loading.attr="disabled">Calculate and save report</flux:button>
         </form>
 
         <section class="agos-card min-w-0 p-6" aria-live="polite">

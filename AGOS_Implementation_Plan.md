@@ -136,12 +136,12 @@ Review every new page for visual consistency, responsiveness, accessibility, and
 ### P6 — Financing readiness, Render Gotenberg, tests
 
 - [x] **P6-T01:** Implement financing-readiness checklist and report without predicting loan approval.
-- **P6-T02:** Configure Render Gotenberg v9 **Chromium-only** (`gotenberg/gotenberg:9-chromium`) with the environment variables below. Verify `/health` and authenticated HTTPS calls.
-- **P6-T03:** Implement Blade report templates, authorized HTML preview, and immutable report data snapshots.
-- **P6-T04:** Use Laravel **database queue** with **one PDF worker**, at most **two pending reports**, and no Redis; issue sequential HTML-to-PDF requests from the backend.
-- **P6-T05:** Apply a 20-second Gotenberg request timeout and 60-second job limit, with at most one safe retry for transient 429/503. Verify PDF MIME type, file content, and financial totals.
-- **P6-T06:** Keep failed report snapshots and HTML available; allow user-triggered retry without modifying financial data.
-- **P6-T07:** Test all FRS modules, cross-business access, adapter contracts, interruptions, audit logs, and Render outage behavior; write demo fixtures and local instructions.
+- [ ] **P6-T02:** Configure Render Gotenberg v9 **Chromium-only** (`gotenberg/gotenberg:9-chromium`) with the environment variables below. Verify `/health` and authenticated HTTPS calls.
+- [x] **P6-T03:** Implement Blade report templates, authorized HTML preview, and immutable report data snapshots.
+- [x] **P6-T04:** Use Laravel **database queue** with **one PDF worker**, at most **two pending reports**, and no Redis; issue sequential HTML-to-PDF requests from the backend.
+- [x] **P6-T05:** Apply a 20-second Gotenberg request timeout and 60-second job limit, with at most one safe retry for transient 429/503. Verify PDF MIME type, file content, and financial totals.
+- [x] **P6-T06:** Keep failed report snapshots and HTML available; allow user-triggered retry without modifying financial data.
+- [x] **P6-T07:** Test all FRS modules, cross-business access, adapter contracts, interruptions, audit logs, and Render outage behavior; write demo fixtures and local instructions.
 
 **Gate:** End-to-end local demonstration works, including authenticated PDFs from Render; failure preserves records and permits retry.
 

@@ -199,9 +199,13 @@ class Team extends Model
         return $this->hasMany(AuditEvent::class);
     }
 
-    /**
-     * Determine whether the business profile onboarding is complete.
-     */
+    /** @return HasMany<ReportSnapshot, $this> */
+    public function reportSnapshots(): HasMany
+    {
+        return $this->hasMany(ReportSnapshot::class);
+    }
+
+    /** Determine whether the business profile onboarding is complete. */
     public function isOnboardingComplete(): bool
     {
         return $this->onboarding_completed_at !== null;

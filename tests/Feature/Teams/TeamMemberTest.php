@@ -32,6 +32,7 @@ class TeamMemberTest extends TestCase
             TeamRole::Admin->value,
             $team->members()->where('user_id', $member->id)->first()->pivot->role->value,
         );
+        $this->assertDatabaseHas('audit_events', ['team_id' => $team->id, 'actor_id' => $owner->id, 'event_type' => 'membership.role_changed']);
     }
 
     public function test_team_member_role_cannot_be_updated_by_non_owner(): void

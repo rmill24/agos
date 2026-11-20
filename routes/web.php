@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ReportController;
 use App\Http\Middleware\EnsureBusinessOnboarding;
 use App\Http\Middleware\EnsureTeamMembership;
 use App\Models\Team;
@@ -49,6 +50,13 @@ Route::prefix('{current_team}')
         Route::livewire('financing-readiness', 'pages::financing-readiness.index')
             ->middleware([EnsureBusinessOnboarding::class, 'can:viewFinancingReadiness,current_team'])
             ->name('financing-readiness.index');
+        Route::middleware([EnsureBusinessOnboarding::class, 'can:viewReports,current_team'])->group(function () {
+            Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+            Route::post('reports', [ReportController::class, 'store'])->name('reports.store');
+            Route::get('reports/{snapshot}', [ReportController::class, 'show'])->whereNumber('snapshot')->name('reports.show');
+            Route::post('reports/{snapshot}/pdf', [ReportController::class, 'queuePdf'])->whereNumber('snapshot')->name('reports.pdf.request');
+            Route::get('reports/{snapshot}/pdf', [ReportController::class, 'downloadPdf'])->whereNumber('snapshot')->name('reports.pdf.download');
+        });
         Route::get('imports', fn (Team $current_team) => to_route('transactions.index', $current_team))
             ->middleware([EnsureBusinessOnboarding::class, 'can:manageFinancialRecords,current_team'])
             ->name('imports.index');

@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Models\Team;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\ReportSnapshotService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,8 @@ class AgosCoffeeHouseSeeder extends Seeder
             [$invoices, $bills] = $this->documents($team, $customers, $suppliers, $monthStart, $today);
             $this->payments($team, $owner, $invoices, $bills, $monthStart, $today, $categories);
             $this->directTransactions($team, $bookkeeper, $monthStart, $today, $categories);
+            app(ReportSnapshotService::class)->create($owner, $team, 'financing-readiness');
+            app(ReportSnapshotService::class)->create($owner, $team, 'cash-flow');
         });
     }
 

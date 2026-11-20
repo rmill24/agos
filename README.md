@@ -183,6 +183,20 @@ The repository's `render.yaml` describes a 512 MiB Gotenberg web service on the 
 
 Run `php artisan gotenberg:check` from the AGOS directory. It checks Chromium health, confirms that anonymous conversion receives HTTP 401, and submits a small synthetic HTML page with Basic Auth. A successful exit confirms a PDF response. No business records are needed. [Gotenberg health](https://gotenberg.dev/docs/system/health) · [HTML conversion](https://gotenberg.dev/docs/chromium/convert-html) · [Render Blueprint reference](https://render.com/docs/blueprint-spec)
 
+### Saved reports
+
+Open **Reports**, choose a report type and select **Save and preview**. Each entry preserves the business name, Manila generation time, calculated data and rendered HTML. Reopen it from **Saved reports** to see the original figures. A new snapshot captures subsequent changes.
+
+For a single invoice, select **Save invoice preview** in its details. Owners and Managers can use **Calculate and save report** in the Scenario Simulator to capture a fresh baseline and hypothetical comparison from the current inputs. Authorized Team report readers can revisit saved previews. HTML previews run locally and work independently of Render.
+
+Select **Generate PDF** beside a saved report to queue its stored HTML. All Teams share one active conversion and two waiting places. If the queue is full, try again once a waiting report starts. Refresh Reports to see its status. **Download PDF** becomes available after the worker extracts the text and verifies the saved report’s rows and amounts. Install Poppler’s `pdftotext` on the worker’s PATH or set `PDFTOTEXT_BINARY` to its absolute path.
+
+Once the Render connection check succeeds, run one `php artisan queue:work database --queue=pdf --tries=1 --timeout=60` process. The database queue must use the application database so job insertion and report admission commit together. A database lock serializes provider requests if another worker starts. Failed or interrupted conversions preserve the original HTML preview.
+
+The worker allows up to 20 seconds per provider request and one automatic retry for HTTP 429 or 503 within the original 60-second deadline. After a failure, open the HTML preview or choose **Retry PDF** to start a new attempt from the same snapshot.
+
+For a local walkthrough, use the Coffee House demo setup above in a disposable database. Sign in as its Owner, open **Reports**, and use one of the seeded cash-flow or financing-readiness previews. Run `php artisan test --filter=ReportPdf` against a test database to exercise provider failures, manual recovery, content mismatches and access restrictions using synthetic reports.
+
 ### Financing readiness
 
 After business onboarding, Owners, Managers and Bookkeepers can open **Financing readiness** in the workspace sidebar. Choose **Refresh report** to reassess the current Team’s records. The report covers transactions, income, expenses, customer invoices, supplier bills, cash-flow evidence and supporting receipts. Its summary counts record groups with recent evidence. Loan approval and financing eligibility are outside its scope.

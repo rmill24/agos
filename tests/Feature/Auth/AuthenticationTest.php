@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\AuditEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class AuthenticationTest extends TestCase
             ->assertRedirect(route('dashboard', absolute: false));
 
         $this->assertAuthenticated();
+        $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'event_type' => 'auth.login', 'result' => 'success']);
     }
 
     public function test_passkey_login_response_redirects_to_the_current_team_dashboard(): void
@@ -66,6 +68,9 @@ class AuthenticationTest extends TestCase
         $response->assertSessionHasErrorsIn('email');
 
         $this->assertGuest();
+        $event = AuditEvent::where('event_type', 'auth.login')->where('result', 'failure')->firstOrFail();
+        $this->assertStringNotContainsString('wrong-password', $event->toJson());
+        $this->assertStringNotContainsString($user->email, $event->toJson());
     }
 
     public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge(): void

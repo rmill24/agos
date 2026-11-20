@@ -2,6 +2,7 @@
 
 use App\Data\TeamPermissions;
 use App\Enums\TeamRole;
+use App\Models\AuditEvent;
 use App\Models\Team;
 use App\Rules\TeamName;
 use Flux\Flux;
@@ -72,10 +73,19 @@ new class extends Component
             'role' => ['required', 'string', Rule::enum(TeamRole::class)],
         ])->validate();
 
-        $this->teamModel->memberships()
-            ->where('user_id', $userId)
-            ->firstOrFail()
-            ->update(['role' => TeamRole::from($validated['role'])]);
+        DB::transaction(function () use ($userId, $validated) {
+            $membership = $this->teamModel->memberships()->where('user_id', $userId)->lockForUpdate()->firstOrFail();
+            $before = $membership->role->value;
+            $membership->update(['role' => TeamRole::from($validated['role'])]);
+            if ($before !== $membership->role->value) {
+                AuditEvent::create([
+                    'actor_id' => Auth::id(), 'team_id' => $this->teamModel->id, 'auditable_type' => $membership->getMorphClass(),
+                    'auditable_id' => $membership->id, 'event_type' => 'membership.role_changed', 'result' => 'success',
+                    'before_values' => ['role' => $before], 'after_values' => ['role' => $membership->role->value],
+                    'request_id' => (string) \Illuminate\Support\Str::uuid(), 'occurred_at' => now(),
+                ]);
+            }
+        });
 
         $this->populateTeamData();
 

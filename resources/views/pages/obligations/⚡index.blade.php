@@ -275,6 +275,14 @@ new class extends Component
                         </ul>
                     </div>
                 @endif
+                @if ($doc->kind === 'invoice')
+                    <form method="post" action="{{ route('reports.store', $team) }}">
+                        @csrf
+                        <input type="hidden" name="kind" value="invoice">
+                        <input type="hidden" name="invoice_id" value="{{ $doc->id }}">
+                        <flux:button type="submit">Save invoice preview</flux:button>
+                    </form>
+                @endif
                 <div>
                     <flux:heading level="3">Payments</flux:heading>
                     @forelse ($doc->payments as $payment)

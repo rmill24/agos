@@ -1,12 +1,50 @@
 # AGOS implementation status
 
+## P6-T05 through P6-T07 — PDF verification, recovery and acceptance, 20 November 2026
+
+**P6-T05.** The database worker checks the PDF response type and file boundaries, then extracts its text and compares the complete report and ordered amounts with the immutable preview. Download requires current access to the owning Team and a verified PDF. Each HTTP request is limited to 20 seconds. HTTP 429 and 503 can schedule one retry if the provider's delay fits inside the original 60-second deadline and the queue has room.
+
+**P6-T06.** A failed conversion leaves the original HTML available. An authorized manual retry starts a new generation of the same PDF record. Duplicate clicks and late jobs from a previous generation do not replace the current attempt. The generation migration was applied locally and verified through rollback and reapplication on isolated PostgreSQL.
+
+**P6-T07.** Coverage includes authentication and role-change audit events, onboarding and Team isolation, ledger and obligation reconciliation, CSV and Loyverse replays, scenario isolation, AI fallback, financing readiness, report permissions and PDF outages. The Coffee House demo includes two saved report previews. The README documents the worker, text extraction dependency, demo and failure tests.
+
+Browser recovery used a simulated outage followed by a real authenticated Render conversion of a synthetic receivables report. The verified download contained three pages, 56 invoice rows and a PHP 562.80 total. The report actions were checked at desktop, tablet and mobile widths. Local Chromium output from all seven report templates passed the text and amount verifier.
+
+The isolated PostgreSQL performance run used 50 businesses with 75 cash movements, 100 invoices and 25 bills each. Twenty concurrent users each ran three rounds of 30-day calculations. The service-level p95 was 1.19 seconds for the dashboard and 1.16 seconds for scenario comparison. The slowest recommendation with rule-based fallback took 1.64 seconds. A separate two-page simulated Loyverse sync published all 500 receipts in 2.71 seconds.
+
+PostgreSQL passed all 348 tests with 1,634 assertions. SQLite passed 345 tests with 1,616 assertions and skipped the three PostgreSQL-only cases. Pint, PHPStan and the production build passed. All local migrations are applied.
+
+**Next task remains P6-T02.** Live health, authentication and Chromium conversion passed. The endpoint also reported LibreOffice. Confirm the deployed image, 512 MiB instance and Render concurrency, queue and timeout settings before closing the task. Routine local worker use also needs the backend service credentials and a trusted PHP CA bundle.
+
+## P6-T04 — Database PDF queue — 20 November 2026
+
+**Verified locally.** From Reports, an authorized Team member can request conversion of a saved snapshot. The new PDF record stores the requester, snapshot reference, lifecycle status and converted bytes. The queue entry, audit event and PDF record commit together. A unique snapshot reference makes repeat submissions idempotent. All Teams share two waiting places. One dedicated database worker sends the exact stored HTML through the backend Gotenberg client. A database lock serializes requests if a second worker starts.
+
+The worker checks current membership, onboarding and report permission before conversion. A worker recovering a submission with an unknown outcome marks it failed. Failed conversions preserve the HTML preview. Converted files await the financial verification planned for P6-T05.
+
+Verification included two PostgreSQL processes contending for the last waiting place, a real Laravel database worker with a fake successful provider response, and a separate worker processing two synthetic submissions with unavailable provider configuration. Browser checks covered queue submission and the full-queue message at desktop, tablet and mobile widths. The migration applied, rolled back and reapplied on isolated PostgreSQL and is applied locally.
+
+The full PostgreSQL suite passed all 334 tests with 1,543 assertions. SQLite passed 331 tests with 1,525 assertions and three PostgreSQL-only skips. Pint, PHPStan and the Vite build passed.
+
+**Next task:** P6-T05 covers transient retries and verification of PDF content and financial totals. See P6-T02 below for live Render verification.
+
+## P6-T03 — Saved reports and authorized HTML previews — 20 November 2026
+
+**Verified.** Reports saves cash-flow, receivables, payables, financing-readiness and recommendation-evidence snapshots. Invoice details and the Scenario Simulator also save reports. Scenario creation checks the caller's scenario permission and recalculates the current inputs on the server. Every preview requires current report access to the owning, onboarded Team.
+
+The additive migration creates a Team-indexed snapshot table with an ownership foreign key and database triggers preventing updates and deletions. The report service saves structured data, escaped Blade HTML and an audit event in one transaction. PostgreSQL uses a consistent read snapshot when creating a report. Preview requests serve the saved HTML, including after the underlying invoices receive further payments.
+
+The full PostgreSQL suite passed all 325 tests with 1,484 assertions. SQLite passed 323 tests with two PostgreSQL-only skips. PostgreSQL reset testing exposed a leftover trigger function after Laravel dropped all tables. A companion migration cleans up that orphan before table creation. A fresh rebuild, rollback, reapplication and repeat test run passed on isolated PostgreSQL. Both migrations are applied locally. Pint, PHPStan and the Vite build passed. Browser verification covered report creation and navigation at 1440, 768 and 390 CSS pixels, keyboard submission, readable mobile table amounts, matching Manila timestamps, invoice details and saving a scenario comparison.
+
+**Next work:** P6-T02 still needs live Render verification. P6-T04 adds the bounded database-backed PDF queue for saved reports.
+
 ## P6-T02 — Render Gotenberg configuration — in progress
 
 The [Render Blueprint](../render.yaml) specifies the v9 Chromium image, the Free instance type, the Render port binding, Basic Auth, one active conversion, two queued requests, a 20-second API timeout and the public health path. The [setup instructions](../README.md#render-pdf-service) cover the backend-only `php artisan gotenberg:check` command. The command checks health, expects an HTTP 401 on anonymous conversion, and validates the response type and PDF boundary markers from an authenticated synthetic conversion.
 
 The Blueprint passed Render's published JSON Schema. All 12 provider tests passed with HTTP fakes. The full default suite passed 311 tests with 1,370 assertions and skipped two PostgreSQL-only cases. Pint, PHPStan and the production build passed. Local PostgreSQL migrations are current.
 
-**Live verification pending.** The configured URL is the example hostname and the local Basic Auth values are empty. Verify the deployed configuration and run the command against the intended Render service before checking off P6-T02. P6-T01 remains the last completed task.
+**Live check on 20 November 2026.** The supplied Render endpoint returned HTTP 200 for health, HTTP 401 for anonymous conversion, and a PDF for authenticated conversion of synthetic HTML. The Artisan check passed with process-only credentials and an explicit trusted CA bundle for PHP. The default PHP configuration failed issuer validation. The health response listed both Chromium and LibreOffice as up. P6-T02 remains open pending confirmation of the deployed Chromium-only image and the planned Render resource and queue settings. The local Laravel environment still needs its service configuration for routine worker use.
 
 ## P6-T01 — Financing-readiness checklist and report — 20 November 2026
 

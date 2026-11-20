@@ -27,6 +27,7 @@ return [
         'username' => env('GOTENBERG_USERNAME'),
         'password' => env('GOTENBERG_PASSWORD'),
         'timeout' => min(20, max(1, (int) env('GOTENBERG_TIMEOUT', 20))),
+        'pdftotext' => env('PDFTOTEXT_BINARY', 'pdftotext'),
     ],
 
     'ses' => [
