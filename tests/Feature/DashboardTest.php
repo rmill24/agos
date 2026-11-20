@@ -31,7 +31,8 @@ class DashboardTest extends TestCase
             ->actingAs($user)
             ->get(route('dashboard'));
 
-        $response->assertOk()->assertSee('Set up your business')->assertDontSee('Net cash movement');
+        $response->assertOk()->assertSee('Set up your business')->assertDontSee('Net cash movement')
+            ->assertSee('aria-label="AGOS"', false);
     }
 
     public function test_month_to_date_cash_uses_only_active_team_movements_through_today_in_manila(): void
@@ -61,6 +62,7 @@ class DashboardTest extends TestCase
 
         $this->actingAs($actor)->get(route('dashboard', ['current_team' => $team, 'forecast_days' => 7]))->assertOk()
             ->assertSee('Current cash')
+            ->assertDontSee('agos-dashboard-background')
             ->assertSee('Projected cash')
             ->assertSee('Cash-safety threshold')
             ->assertSee('PHP 500.00')

@@ -5,9 +5,9 @@
     {{ filled($title ?? null) ? $title.' - AGOS' : 'AGOS — Financial clarity for growing businesses' }}
 </title>
 
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/favicon.ico?v=agos" sizes="any">
+<link rel="icon" href="/brand/favicon.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=agos">
 
 @fonts
 
