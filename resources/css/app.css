@@ -1,6 +1,30 @@
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
+@font-face {
+    font-family: 'Instrument Sans';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/instrument-sans-400.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Instrument Sans';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/instrument-sans-500.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Instrument Sans';
+    font-style: normal;
+    font-weight: 600 900;
+    font-display: swap;
+    src: url('../fonts/instrument-sans-600.woff2') format('woff2');
+}
+
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
@@ -85,7 +109,7 @@
         border-color: var(--color-gray-200, currentColor);
     }
 
-    html { @apply bg-canvas; }
+    html { @apply bg-canvas; scroll-behavior: smooth; }
     body { @apply bg-canvas text-slate-900 antialiased; color: var(--agos-text); }
     :focus-visible { @apply outline-2 outline-offset-2 outline-brand-600 dark:outline-blue-300; }
 
@@ -101,7 +125,7 @@
         display: inline-block;
         flex-shrink: 0;
         background-color: currentColor;
-        mask: url('../images/agos-wave.png') center / contain no-repeat;
+        mask: url('../images/agos-mark.png') center / contain no-repeat;
     }
 
     .agos-page { @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8; }
@@ -126,6 +150,21 @@
     .agos-appearance-switch-compact { @apply ms-auto shrink-0 gap-0 p-0; }
     .agos-appearance-switch-compact .agos-appearance-option { @apply size-6 min-h-6 min-w-6 p-0; }
     .agos-appearance-switch-compact svg { @apply size-3.5; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    [data-agos-page-transition] {
+        animation: agos-page-enter 680ms ease-in-out both;
+    }
+
+    @keyframes agos-page-enter {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
 }
 
 .agos-sidebar[data-flux-sidebar] { height: 100dvh; overflow: hidden; }

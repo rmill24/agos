@@ -120,6 +120,14 @@ document.addEventListener('DOMContentLoaded', initCashFlowCharts);
 document.addEventListener('DOMContentLoaded', initScenarioComparisonCharts);
 document.addEventListener('livewire:navigated', initCashFlowCharts);
 document.addEventListener('livewire:navigated', initScenarioComparisonCharts);
+document.addEventListener('livewire:navigated', () => {
+    const page = document.querySelector('[data-agos-page-transition]');
+    if (!page || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    page.style.animation = 'none';
+    void page.offsetWidth;
+    page.style.animation = '';
+});
 document.addEventListener('livewire:initialized', () => {
     initScenarioComparisonCharts();
     Livewire.hook('morph.updated', () => requestAnimationFrame(initScenarioComparisonCharts));
